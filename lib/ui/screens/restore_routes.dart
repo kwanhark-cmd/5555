@@ -10,8 +10,9 @@ import 'voice_screen.dart';
 
 /// 잠긴 뒤 다시 열 때 보던 화면을 되살린다(이름 → 화면). 입력 화면은 되살리지 않는다.
 Widget? screenForRestoreId(String id) {
-  if (id.startsWith('sub:'))
+  if (id.startsWith('sub:')) {
     return SubscriptionDetailScreen(id: id.substring(4));
+  }
   if (id.startsWith('acc:')) return AccountDetailScreen(id: id.substring(4));
   return switch (id) {
     'subs' => const SubscriptionsScreen(),
