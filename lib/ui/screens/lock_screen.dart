@@ -1,0 +1,319 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+
+import '../../core/crypto/vault_crypto.dart';
+import '../../core/vault/vault.dart';
+import '../../data/repository.dart';
+import '../theme/tokens.dart';
+import '../widgets/common.dart';
+
+/// 잠금 화면. 잠긴 동안에는 어떤 개인 데이터도 보여 주지 않는다(사용자 별명만).
+class LockScreen extends StatefulWidget {
+  const LockScreen({super.key});
+
+  @override
+  State<LockScreen> createState() => _LockScreenState();
+}
+
+class _LockScreenState extends State<LockScreen> {
+  final pw = TextEditingController();
+  ProfileInfo? selected;
+  String? message;
+  StatusKind messageKind = StatusKind.danger;
+  bool busy = false;
+  bool bio = false;
+  Duration wait = Duration.zero;
+  Timer? _ticker;
+  bool _triedAutoBio = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _select(context.appRead.defaultProfile),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    pw.dispose();
+    super.dispose();
+  }
+
+  Future<void> _select(ProfileInfo? p) async {
+    if (p == null) return;
+    final app = context.appRead;
+    final hasBio = await app.hasBiometric(p);
+    final w = await app.lockoutRemaining(p);
+    if (!mounted) return;
+    setState(() {
+      selected = p;
+      bio = hasBio;
+      message = null;
+    });
+    _startWait(w);
+    if (hasBio && !_triedAutoBio && w == Duration.zero) {
+      _triedAutoBio = true;
+      unawaited(_unlockBio());
+    }
+  }
+
+  void _startWait(Duration w) {
+    _ticker?.cancel();
+    setState(() => wait = w);
+    if (w <= Duration.zero) return;
+    _ticker = Timer.periodic(const Duration(seconds: 1), (t) {
+      final next = wait - const Duration(seconds: 1);
+      if (next <= Duration.zero) {
+        t.cancel();
+        setState(() {
+          wait = Duration.zero;
+          message = null;
+        });
+      } else {
+        setState(() => wait = next);
+      }
+    });
+  }
+
+  void _show(UnlockResult r) {
+    switch (r) {
+      case UnlockSuccess():
+        pw.clear();
+      case UnlockWrongSecret(:final failedAttempts, :final waitBeforeNext):
+        setState(() {
+          messageKind = StatusKind.danger;
+          message = waitBeforeNext > Duration.zero
+              ? '비밀번호가 맞지 않아요($failedAttempts번째). 안전을 위해 잠시 기다린 뒤 다시 해 주세요.'
+              : '비밀번호가 맞지 않아요. 다시 입력해 주세요.';
+        });
+        _startWait(waitBeforeNext);
+      case UnlockLockedOut(:final remaining):
+        setState(() {
+          messageKind = StatusKind.caution;
+          message = '여러 번 틀려서 잠시 기다려야 해요.';
+        });
+        _startWait(remaining);
+      case UnlockUnavailable(:final message):
+        setState(() {
+          messageKind = StatusKind.progress;
+          this.message = '$message. 마스터 비밀번호로 열어 주세요.';
+        });
+      case UnlockCorrupted(:final message):
+        setState(() {
+          messageKind = StatusKind.danger;
+          this.message = message;
+        });
+    }
+  }
+
+  Future<void> _unlock() async {
+    final p = selected;
+    if (p == null || busy || wait > Duration.zero) return;
+    if (pw.text.isEmpty) {
+      setState(() => message = '마스터 비밀번호를 입력해 주세요.');
+      return;
+    }
+    setState(() => busy = true);
+    try {
+      _show(await context.appRead.unlockWithPassword(p, pw.text));
+    } on VaultCryptoException catch (e) {
+      setState(() => message = e.reason);
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  Future<void> _unlockBio() async {
+    final p = selected;
+    if (p == null || busy) return;
+    setState(() => busy = true);
+    try {
+      _show(await context.appRead.unlockWithBiometric(p));
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  Future<void> _recovery() async {
+    final p = selected;
+    if (p == null) return;
+    final c = TextEditingController();
+    final code = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('복구 코드로 열기'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                '적어 두신 25글자 복구 코드를 입력해 주세요. 띄어쓰기·하이픈(-)은 없어도 돼요.\n열고 나면 새 마스터 비밀번호를 정해야 해요.',
+              ),
+              gap,
+              BigField(controller: c, label: '복구 코드', autofocus: true),
+            ],
+          ),
+        ),
+        actions: [
+          BigButton(
+            label: '취소',
+            kind: ButtonKind.plain,
+            expand: false,
+            raised: false,
+            onPressed: () => Navigator.pop(ctx),
+          ),
+          BigButton(
+            label: '열기',
+            expand: false,
+            raised: false,
+            onPressed: () => Navigator.pop(ctx, c.text),
+          ),
+        ],
+      ),
+    );
+    c.dispose();
+    if (code == null || code.trim().isEmpty || !mounted) return;
+    setState(() => busy = true);
+    try {
+      _show(await context.appRead.unlockWithRecovery(p, code));
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.app;
+    final t = Theme.of(context).textTheme;
+    final waiting = wait > Duration.zero;
+    return Scaffold(
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
+          children: [
+            const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                LockAnimation(open: false, size: 96),
+                SizedBox(width: 8),
+                Mascot(MascotMood.locked, size: 96),
+              ],
+            ),
+            gap,
+            Text(
+              '금고가 잠겨 있어요',
+              style: t.headlineMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '정보를 보려면 본인 확인이 필요해요.',
+              style: t.bodyLarge,
+              textAlign: TextAlign.center,
+            ),
+            gapBig,
+            if (app.profileList.length > 1) ...[
+              Text('누구세요?', style: t.titleMedium),
+              const SizedBox(height: 8),
+              ChoiceChips<ProfileInfo>(
+                values: app.profileList,
+                selected: selected ?? app.profileList.first,
+                label: (p) => p.name,
+                onSelected: (p) {
+                  _triedAutoBio = true;
+                  _select(p);
+                },
+              ),
+              gap,
+            ] else if (selected != null) ...[
+              Text(
+                '${selected!.name}님의 금고',
+                style: t.titleLarge,
+                textAlign: TextAlign.center,
+              ),
+              gap,
+            ],
+            BigField(
+              controller: pw,
+              label: '마스터 비밀번호',
+              obscure: true,
+              onSubmitted: (_) => _unlock(),
+            ),
+            if (message != null || waiting) ...[
+              gap,
+              StatusBadge(
+                waiting ? StatusKind.caution : messageKind,
+                waiting
+                    ? '${message ?? '잠시 기다려 주세요.'} (${wait.inSeconds}초)'
+                    : message!,
+              ),
+            ],
+            gap,
+            busy
+                ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(8),
+                      child: CircularProgressIndicator(),
+                    ),
+                  )
+                : BigButton(
+                    label: waiting ? '${wait.inSeconds}초 뒤에 다시 시도' : '열기',
+                    icon: Icons.lock_open_rounded,
+                    onPressed: waiting ? null : _unlock,
+                  ),
+            if (bio) ...[
+              gap,
+              BigButton(
+                label: '지문·얼굴로 열기',
+                icon: Icons.fingerprint_rounded,
+                kind: ButtonKind.safe,
+                onPressed: busy || waiting ? null : _unlockBio,
+              ),
+            ],
+            gapBig,
+            TextButton.icon(
+              onPressed: busy ? null : _recovery,
+              icon: const Icon(Icons.help_outline_rounded, size: 28),
+              label: const Text(
+                '마스터 비밀번호를 잊었어요 (복구 코드)',
+                style: TextStyle(fontSize: 18),
+              ),
+              style: TextButton.styleFrom(minimumSize: const Size(48, 56)),
+            ),
+            TextButton.icon(
+              onPressed: busy ? null : () => app.beginOnboarding(),
+              icon: const Icon(Icons.person_add_alt_1_rounded, size: 28),
+              label: const Text(
+                '다른 사람 금고 새로 만들기',
+                style: TextStyle(fontSize: 18),
+              ),
+              style: TextButton.styleFrom(minimumSize: const Size(48, 56)),
+            ),
+            gap,
+            Text(
+              '앱 버전 ${app.services.appVersion}',
+              textAlign: TextAlign.center,
+              style: t.bodyMedium,
+            ),
+            Text(
+              '글씨 크기: ${DeviceSettings.textScaleLabels[app.settings.textScaleLevel]}',
+              textAlign: TextAlign.center,
+              style: t.bodyMedium,
+            ),
+            Center(
+              child: TextButton(
+                onPressed: () => app.updateSettings(
+                  (s) => s.textScaleLevel = (s.textScaleLevel + 1) % 3,
+                ),
+                child: const Text('글씨 크기 바꾸기', style: TextStyle(fontSize: 18)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

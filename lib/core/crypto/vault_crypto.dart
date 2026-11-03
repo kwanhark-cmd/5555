@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:isolate';
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -118,13 +119,23 @@ class VaultCrypto {
     if (salt.length < saltLength) {
       throw const VaultCryptoException('소금값 길이 오류');
     }
-    final argon = Argon2id(
-      parallelism: params.parallelism,
-      memory: params.memoryKiB,
-      iterations: params.iterations,
-      hashLength: keyLength,
-    );
-    return argon.deriveKeyFromPassword(password: secret, nonce: salt);
+    final saltCopy = List<int>.of(salt);
+    final m = params.memoryKiB, t = params.iterations, p = params.parallelism;
+    // 계산이 무거워(약 1초) 화면이 멈추지 않도록 별도 작업 공간(isolate)에서 실행한다.
+    final bytes = await Isolate.run(() async {
+      final argon = Argon2id(
+        parallelism: p,
+        memory: m,
+        iterations: t,
+        hashLength: keyLength,
+      );
+      final k = await argon.deriveKeyFromPassword(
+        password: secret,
+        nonce: saltCopy,
+      );
+      return k.extractBytes();
+    });
+    return SecretKey(bytes);
   }
 
   Future<SecretKey> newRandomKey() async => SecretKey(randomBytes(keyLength));
