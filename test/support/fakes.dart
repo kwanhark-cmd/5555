@@ -120,12 +120,20 @@ class TestRig {
   FakeNotifications get notifications =>
       services.notifications as FakeNotifications;
 
-  static Future<TestRig> create({
+  static Future<TestRig> create({Clock? clock, int clipboardSeconds = 30}) =>
+      createAt(
+        Directory.systemTemp.createTempSync('vault_rig'),
+        clock: clock,
+        clipboardSeconds: clipboardSeconds,
+      );
+
+  /// 이미 있는 자료 폴더(예: 이전 버전 금고)로 앱을 띄운다.
+  static Future<TestRig> createAt(
+    Directory dir, {
     Clock? clock,
     int clipboardSeconds = 30,
   }) async {
-    final dir = Directory.systemTemp.createTempSync('vault_rig');
-    final scratch = Directory('${dir.path}/tmp')..createSync();
+    final scratch = Directory('${dir.path}/tmp')..createSync(recursive: true);
     final services = AppServices(
       dataDir: dir,
       scratchDir: scratch,

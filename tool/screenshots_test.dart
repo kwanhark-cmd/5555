@@ -23,14 +23,23 @@ Future<void> loadFonts() async {
   await kr.load();
   final root = Platform.environment['FLUTTER_ROOT'] ?? '/opt/sdk/flutter';
   final icons = FontLoader('MaterialIcons')
-    ..addFont(Future.value(ByteData.view(
-        File('$root/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf').readAsBytesSync().buffer)));
+    ..addFont(
+      Future.value(
+        ByteData.view(
+          File(
+            '$root/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf',
+          ).readAsBytesSync().buffer,
+        ),
+      ),
+    );
   await icons.load();
 }
 
 Future<void> shot(WidgetTester tester, String name) async {
   for (var i = 0; i < 8; i++) {
-    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 120)));
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 120)),
+    );
     await tester.pump(const Duration(milliseconds: 150));
   }
   final ro = tester.renderObject(find.byType(MaterialApp).first);
@@ -59,7 +68,9 @@ void main() {
       rig = await TestRig.create();
       await rig.controller.updateSettings((s) => s.autoLockSeconds = 0);
     });
-    await tester.pumpWidget(RepaintBoundary(child: VaultApp(controller: rig.controller)));
+    await tester.pumpWidget(
+      RepaintBoundary(child: VaultApp(controller: rig.controller)),
+    );
     await shot(tester, '01_첫실행');
 
     await tester.runAsync(() async {
@@ -67,7 +78,9 @@ void main() {
       rig.controller.endOnboarding();
       await rig.controller.mutate((d) {
         final s = sampleData(rig.controller.now());
-        d.subscriptions.addAll(s.subscriptions.where((x) => !x.serviceName.startsWith('아주')));
+        d.subscriptions.addAll(
+          s.subscriptions.where((x) => !x.serviceName.startsWith('아주')),
+        );
         d.credits.addAll(s.credits);
         d.accounts.addAll(s.accounts);
         markSeen(d, computeAlerts(d, rig.controller.now()));
@@ -78,7 +91,10 @@ void main() {
     final nav = tester.state<NavigatorState>(find.byType(Navigator).first);
     for (final (name, w) in [
       ('03_구독', const SubscriptionsScreen() as Widget),
-      ('04_계정상세', AccountDetailScreen(id: rig.controller.data.accounts.first.id)),
+      (
+        '04_계정상세',
+        AccountDetailScreen(id: rig.controller.data.accounts.first.id),
+      ),
       ('05_정리도우미', const CleanupScreen()),
       ('06_음성비서', const VoiceScreen()),
     ]) {
@@ -88,9 +104,13 @@ void main() {
       await shot(tester, '_tmp');
     }
 
-    await tester.runAsync(() => rig.controller.updateSettings((s) => s.themeMode = 'dark'));
+    await tester.runAsync(
+      () => rig.controller.updateSettings((s) => s.themeMode = 'dark'),
+    );
     await shot(tester, '07_홈_어두운모드');
-    await tester.runAsync(() => rig.controller.updateSettings((s) => s.themeMode = 'contrast'));
+    await tester.runAsync(
+      () => rig.controller.updateSettings((s) => s.themeMode = 'contrast'),
+    );
     await shot(tester, '08_홈_고대비');
     await tester.runAsync(() async {
       await rig.controller.updateSettings((s) => s.themeMode = 'light');
