@@ -1,3 +1,4 @@
+import '../core/clock.dart';
 import '../data/models.dart';
 import 'dates.dart';
 
@@ -37,9 +38,15 @@ List<AlertItem> computeAlerts(VaultData d, DateTime now) {
   final out = <AlertItem>[];
   for (final c in d.credits.where((c) => !c.done)) {
     final left = daysUntil(c.expiresAt, now);
-    // 7일 넘게 남았거나, 만료 후 14일이 지난 항목은 알리지 않는다.
-    if (left > 7 || left < -14) continue;
-    final stage = left < 0 ? 'expired' : (left <= 1 ? '1' : '7');
+    final snooze = c.snoozeUntil;
+    final snoozed = snooze != null && dateOnly(now).isBefore(dateOnly(snooze));
+    if (snoozed) continue; // "다시 알림" 날짜 전에는 조용히
+    final reAlert = snooze != null; // 다시 알림 날짜가 되면 기간과 상관없이 한 번 더
+    // 7일 넘게 남았거나, 만료 후 14일이 지난 항목은 알리지 않는다(다시 알림 제외).
+    if (!reAlert && (left > 7 || left < -14)) continue;
+    final stage =
+        (reAlert ? 'again-${snooze.toIso8601String()}-' : '') +
+        (left < 0 ? 'expired' : (left <= 1 ? '1' : '7'));
     final what = c.amountText.isEmpty
         ? c.kind.label
         : '${c.kind.label} ${c.amountText}';
@@ -108,6 +115,8 @@ List<DateTime> notificationTimes(VaultData d, DateTime now) {
       final t = at9(c.expiresAt.subtract(Duration(days: before)));
       if (t.isAfter(now)) times.add(t);
     }
+    final snooze = c.snoozeUntil;
+    if (snooze != null && at9(snooze).isAfter(now)) times.add(at9(snooze));
   }
   for (final s in d.subscriptions.where((s) => !s.isPaused)) {
     final next = upcomingRenewal(s, now);

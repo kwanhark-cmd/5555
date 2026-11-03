@@ -1,6 +1,8 @@
 package com.kwanhark.vaultassistant.account_vault
 
+import android.content.ComponentName
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -36,6 +38,33 @@ class MainActivity : FlutterFragmentActivity() {
                     result.success(null)
                 } else {
                     result.notImplemented()
+                }
+            }
+        // 앱 꾸미기: 런처 이름·아이콘 바꾸기(같은 앱, 다른 입구 하나만 켬)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "account_vault/launcher")
+            .setMethodCallHandler { call, result ->
+                if (call.method != "setStyle") {
+                    result.notImplemented()
+                    return@setMethodCallHandler
+                }
+                val wanted = when (call.arguments as? String) {
+                    "calculator" -> "LauncherCalculator"
+                    "memo" -> "LauncherMemo"
+                    else -> "LauncherDefault"
+                }
+                try {
+                    for (alias in listOf("LauncherDefault", "LauncherCalculator", "LauncherMemo")) {
+                        val state = if (alias == wanted) PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+                        else PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+                        packageManager.setComponentEnabledSetting(
+                            ComponentName(packageName, "$packageName.$alias"),
+                            state,
+                            PackageManager.DONT_KILL_APP
+                        )
+                    }
+                    result.success(true)
+                } catch (e: Exception) {
+                    result.error("launcher_failed", e.javaClass.simpleName, null)
                 }
             }
         // 새 버전 설치: 해시 확인을 마친 APK 를 안드로이드 설치 화면으로 넘긴다(사용자가 최종 확인).

@@ -43,6 +43,7 @@ Future<AppServices> createPlatformServices() async {
     secureScreen: AndroidSecureScreen(),
     haptics: SystemHaptics(),
     installer: PlatformInstaller(),
+    launcherStyle: AndroidLauncherStyle(),
     appVersion: appVersion,
   );
 }
@@ -452,6 +453,21 @@ class PlatformInstaller implements InstallerPort {
     } catch (e) {
       log.warn('설치 시작 실패: ${e.runtimeType}');
       return '설치를 시작하지 못했어요. 내려받은 파일: ${file.path}';
+    }
+  }
+}
+
+class AndroidLauncherStyle implements LauncherStylePort {
+  static const _ch = MethodChannel('account_vault/launcher');
+
+  @override
+  Future<bool> setStyle(String style) async {
+    if (!Platform.isAndroid) return false;
+    try {
+      return await _ch.invokeMethod<bool>('setStyle', style) ?? false;
+    } catch (e) {
+      log.warn('런처 모양 바꾸기 실패: ${e.runtimeType}');
+      return false;
     }
   }
 }

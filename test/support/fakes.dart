@@ -122,6 +122,15 @@ class FakeInstaller implements InstallerPort {
   }
 }
 
+class FakeLauncherStyle implements LauncherStylePort {
+  String? style;
+  @override
+  Future<bool> setStyle(String s) async {
+    style = s;
+    return true;
+  }
+}
+
 class TestRig {
   TestRig._(this.dir, this.services, this.controller);
   final Directory dir;
@@ -163,6 +172,7 @@ class TestRig {
       secureScreen: FakeSecureScreen(),
       haptics: FakeHaptics(),
       installer: FakeInstaller(),
+      launcherStyle: FakeLauncherStyle(),
       appVersion: '1.0.0-test',
     );
     final c = AppController(

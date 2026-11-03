@@ -154,9 +154,13 @@ class CreditItem {
     required this.expiresAt,
     this.memo = '',
     this.done = false,
+    this.snoozeUntil,
     DateTime? createdAt,
   }) : id = id ?? newId(),
        createdAt = createdAt ?? DateTime.now();
+
+  /// "다시 알림": 이 날짜부터 다시 알린다(만료 14일이 지나도 한 번 더).
+  DateTime? snoozeUntil;
 
   final String id;
   String serviceName;
@@ -178,6 +182,7 @@ class CreditItem {
     'memo': memo,
     'done': done,
     'createdAt': _iso(createdAt),
+    if (snoozeUntil != null) 'snoozeUntil': _iso(snoozeUntil),
   };
 
   static CreditItem fromJson(Map<String, Object?> j) => CreditItem(
@@ -188,6 +193,7 @@ class CreditItem {
     expiresAt: _date(j['expiresAt']) ?? DateTime.now(),
     memo: (j['memo'] as String?) ?? '',
     done: (j['done'] as bool?) ?? false,
+    snoozeUntil: _date(j['snoozeUntil']),
     createdAt: _date(j['createdAt']),
   );
 }

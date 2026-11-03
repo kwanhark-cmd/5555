@@ -67,6 +67,11 @@ abstract class InstallerPort {
   Future<String> install(File file);
 }
 
+/// 런처(홈 화면) 이름·아이콘 바꾸기. 안드로이드만 실제로 바뀌고, 나머지는 false.
+abstract class LauncherStylePort {
+  Future<bool> setStyle(String style);
+}
+
 abstract class HapticPort {
   void tap();
   void success();
@@ -86,6 +91,7 @@ class AppServices {
     required this.secureScreen,
     required this.haptics,
     required this.installer,
+    required this.launcherStyle,
     required this.appVersion,
     required this.scratchDir,
   });
@@ -103,5 +109,6 @@ class AppServices {
   final SecureScreenPort secureScreen;
   final HapticPort haptics;
   final InstallerPort installer;
+  final LauncherStylePort launcherStyle;
   final String appVersion;
 }

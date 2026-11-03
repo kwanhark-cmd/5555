@@ -307,7 +307,34 @@ class DeviceSettings {
     this.lastProfileId,
     this.tipsShown = const {},
     this.voiceProvider = 'device',
+    this.colorTheme = 'violet',
+    this.launcherStyle = 'default',
   });
+
+  /// 색 테마(주요색): violet(기본)·plum·navy·slate
+  String colorTheme;
+
+  /// 앱 겉모습(위장): default·calculator·memo — 런처 이름·아이콘(안드로이드)과 앱 제목
+  String launcherStyle;
+
+  static const colorThemes = {
+    'violet': '보라(기본)',
+    'plum': '자주',
+    'navy': '남색',
+    'slate': '먹색',
+  };
+  static const launcherStyles = {
+    'default': '구독·계정 비서(기본)',
+    'calculator': '계산기',
+    'memo': '메모',
+  };
+
+  /// 작업 전환 화면 등에 보이는 앱 이름.
+  String get appTitle => switch (launcherStyle) {
+    'calculator' => '계산기',
+    'memo' => '메모',
+    _ => '구독·계정 비서',
+  };
 
   /// 0=보통, 1=크게, 2=아주 크게
   int textScaleLevel;
@@ -337,6 +364,8 @@ class DeviceSettings {
     'lastProfileId': lastProfileId,
     'tipsShown': tipsShown.toList(),
     'voiceProvider': voiceProvider,
+    'colorTheme': colorTheme,
+    'launcherStyle': launcherStyle,
   };
 
   static DeviceSettings fromJson(Map<String, Object?> j) => DeviceSettings(
@@ -349,6 +378,8 @@ class DeviceSettings {
     lastProfileId: j['lastProfileId'] as String?,
     tipsShown: ((j['tipsShown'] as List?) ?? []).whereType<String>().toSet(),
     voiceProvider: (j['voiceProvider'] as String?) ?? 'device',
+    colorTheme: (j['colorTheme'] as String?) ?? 'violet',
+    launcherStyle: (j['launcherStyle'] as String?) ?? 'default',
   );
 
   static Future<DeviceSettings> load(File f) async {

@@ -184,6 +184,39 @@ void main() {
       expect(a.detail, contains('만료되었어요'));
     });
 
+    test('다시 알림: 그날 전에는 조용히, 그날이 되면 다시(만료 14일 지나도)', () {
+      final c = CreditItem(
+        serviceName: 'a',
+        expiresAt: DateTime(2026, 10, 1),
+        snoozeUntil: DateTime(2026, 11, 5),
+      );
+      final d = VaultData(credits: [c]);
+      expect(computeAlerts(d, now), isEmpty); // 11/3 < 11/5
+      final later = computeAlerts(d, DateTime(2026, 11, 5, 9));
+      expect(later.single.level, AlertLevel.danger);
+      markSeen(d, later);
+      expect(unseenAlerts(d, DateTime(2026, 11, 5, 10)), isEmpty);
+      expect(
+        notificationTimes(
+          VaultData(
+            credits: [
+              CreditItem(
+                serviceName: 'b',
+                expiresAt: DateTime(2027, 1, 1),
+                snoozeUntil: DateTime(2026, 11, 10),
+              ),
+            ],
+          ),
+          now,
+        ),
+        contains(DateTime(2026, 11, 10, 9)),
+      );
+      expect(
+        CreditItem.fromJson(c.toJson()).snoozeUntil,
+        DateTime(2026, 11, 5),
+      );
+    });
+
     test('만료 후 14일이 지나면 더 이상 알리지 않음', () {
       final d = VaultData(
         credits: [

@@ -48,7 +48,11 @@ class _VaultAppState extends State<VaultApp> {
         builder: (context) {
           final app = context.app;
           final platform = MediaQuery.platformBrightnessOf(context);
-          final palette = paletteFor(app.settings.themeMode, platform);
+          final palette = paletteFor(
+            app.settings.themeMode,
+            platform,
+            app.settings.colorTheme,
+          );
           return AppTheme(
             palette: palette,
             reduceMotion: app.settings.reduceMotion,
@@ -56,7 +60,7 @@ class _VaultAppState extends State<VaultApp> {
               navigatorKey: app.navigatorKey,
               navigatorObservers: [app.navObserver],
               debugShowCheckedModeBanner: false,
-              title: '로그인 계정과 구독 결제 관리 비서',
+              title: app.settings.appTitle,
               theme: buildTheme(palette),
               locale: const Locale('ko', 'KR'),
               supportedLocales: const [Locale('ko', 'KR')],

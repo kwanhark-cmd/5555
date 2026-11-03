@@ -164,6 +164,70 @@ class AppPalette {
   );
 
   static const all = [light, dark, contrast];
+
+  /// 색 테마별 주요색(밝은 모드, 어두운 모드). 모두 WCAG AA 대비 검사 대상.
+  static const colorThemes = <String, (Color, Color, Color, Color)>{
+    'violet': (
+      Color(0xFF4338CA),
+      Color(0xFFFFFFFF),
+      Color(0xFFA5B4FC),
+      Color(0xFF1E1B4B),
+    ),
+    'plum': (
+      Color(0xFF86198F),
+      Color(0xFFFFFFFF),
+      Color(0xFFF0ABFC),
+      Color(0xFF3B0764),
+    ),
+    'navy': (
+      Color(0xFF1E3A8A),
+      Color(0xFFFFFFFF),
+      Color(0xFFA5C8FF),
+      Color(0xFF0B1B3A),
+    ),
+    'slate': (
+      Color(0xFF334155),
+      Color(0xFFFFFFFF),
+      Color(0xFFCBD5E1),
+      Color(0xFF0F172A),
+    ),
+  };
+
+  /// 색 테마 적용(고대비 모드는 바꾸지 않음).
+  AppPalette withColorTheme(String theme) {
+    final t = colorThemes[theme];
+    if (t == null || name == 'contrast') return this;
+    final dark = brightness == Brightness.dark;
+    return AppPalette(
+      name: '$name-$theme',
+      brightness: brightness,
+      background: background,
+      surface: surface,
+      surfaceAlt: surfaceAlt,
+      text: text,
+      textMuted: textMuted,
+      border: border,
+      primary: dark ? t.$3 : t.$1,
+      onPrimary: dark ? t.$4 : t.$2,
+      accent: accent,
+      onAccent: onAccent,
+      safe: safe,
+      progress: progress,
+      caution: caution,
+      danger: danger,
+      safeFill: safeFill,
+      progressFill: progressFill,
+      cautionFill: cautionFill,
+      dangerFill: dangerFill,
+      onSafeFill: onSafeFill,
+      onProgressFill: onProgressFill,
+      onCautionFill: onCautionFill,
+      onDangerFill: onDangerFill,
+      shadow: shadow,
+      tileTop: tileTop,
+      tileBottom: tileBottom,
+    );
+  }
 }
 
 /// 크기·간격·둥글기·그림자·움직임 시간.
@@ -264,7 +328,13 @@ extension ThemeX on BuildContext {
   bool get reduceMotion => AppTheme.of(this).reduceMotion;
 }
 
-AppPalette paletteFor(String mode, Brightness platform) => switch (mode) {
+AppPalette paletteFor(
+  String mode,
+  Brightness platform, [
+  String colorTheme = 'violet',
+]) => _basePalette(mode, platform).withColorTheme(colorTheme);
+
+AppPalette _basePalette(String mode, Brightness platform) => switch (mode) {
   'dark' => AppPalette.dark,
   'contrast' => AppPalette.contrast,
   'system' => platform == Brightness.dark ? AppPalette.dark : AppPalette.light,
