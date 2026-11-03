@@ -254,7 +254,11 @@ class AppTokens {
   static const radiusCard = 20.0;
   static const radiusTile = 26.0;
 
-  // 글자 크기(기본, 화면 배율이 곱해짐)
+  // 카드 사이 간격(기존 12의 1.5배)
+  static const cardGap = 18.0;
+
+  // 글자 위계 4단계(기본, 화면 배율이 곱해짐): 큰 숫자 > 화면 제목 > 카드 제목 > 본문
+  static const fontDisplay = 44.0;
   static const fontTitle = 28.0;
   static const fontHeading = 22.0;
   static const fontBody = 18.0;
@@ -266,6 +270,20 @@ class AppTokens {
   static const transition = Duration(milliseconds: 220);
   static const lockAnimation = Duration(milliseconds: 650); // 1초 이내
   static const checkAnimation = Duration(milliseconds: 500);
+
+  /// 카드용 부드러운 그림자(입체감 없이 바탕과 구분만).
+  static List<BoxShadow> soft(AppPalette p) {
+    if (p.name == 'contrast') return const [];
+    return [
+      BoxShadow(
+        color: p.shadow.withValues(
+          alpha: p.brightness == Brightness.dark ? 0.45 : 0.12,
+        ),
+        offset: const Offset(0, 3),
+        blurRadius: 10,
+      ),
+    ];
+  }
 
   /// 입체 그림자(메인 타일·주요 버튼만 사용).
   static List<BoxShadow> raised(AppPalette p, {bool pressed = false}) {

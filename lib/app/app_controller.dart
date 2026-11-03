@@ -400,6 +400,22 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     return f.path;
   }
 
+  /// 표시 이름 바꾸기(사용자 목록 + 금고 안 설정).
+  Future<void> renameProfile(String name) async {
+    final info = currentProfile;
+    if (info == null || name.trim().isEmpty) return;
+    info.name = name.trim();
+    await profiles.upsert(info);
+    profileList = await profiles.list();
+    await mutate((d) => d.prefs.displayName = name.trim());
+  }
+
+  /// 런처 이름·아이콘(위장) 바꾸기. 안드로이드는 실제 런처까지, 나머지는 앱 안 제목만.
+  Future<bool> setLauncherStyle(String style) async {
+    await updateSettings((s) => s.launcherStyle = style);
+    return services.launcherStyle.setStyle(style);
+  }
+
   Future<void> reloadProfiles() async {
     profileList = await profiles.list();
     notifyListeners();

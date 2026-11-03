@@ -4,9 +4,12 @@ import '../../core/crypto/password_tools.dart';
 import '../../core/log/app_logger.dart';
 import '../../data/repository.dart';
 import '../../logic/gmail.dart';
+import '../../logic/import_files.dart';
 import '../../logic/mail_analysis.dart';
 import '../theme/tokens.dart';
 import '../widgets/common.dart';
+import '../widgets/cards.dart';
+import 'appearance_section.dart';
 import 'recovery_code_view.dart';
 import 'update_card.dart';
 
@@ -23,162 +26,207 @@ class SettingsScreen extends StatelessWidget {
     final s = app.settings;
     final t = Theme.of(context).textTheme;
     final prefs = app.data.prefs;
+    final bioOn = app.session?.hasDeviceUnlock ?? false;
     return AppPage(
       title: '설정',
       restoreId: 'settings',
       children: [
+        // 맨 위: 업데이트 확인 + 문제 신고
         const UpdateCard(),
-        const SizedBox(height: AppTokens.s4),
-        const SectionTitle('보기'),
-        Text('글씨 크기', style: t.titleMedium),
-        const SizedBox(height: 6),
-        ChoiceChips<int>(
-          values: const [0, 1, 2],
-          selected: s.textScaleLevel,
-          label: (i) => DeviceSettings.textScaleLabels[i],
-          onSelected: (i) => app.updateSettings((x) => x.textScaleLevel = i),
-        ),
-        gap,
-        Text('화면 모드', style: t.titleMedium),
-        const SizedBox(height: 6),
-        ChoiceChips<String>(
-          values: const ['light', 'dark', 'contrast', 'system'],
-          selected: s.themeMode,
-          label: (m) => const {
-            'light': '밝게',
-            'dark': '어둡게',
-            'contrast': '고대비',
-            'system': '기기 설정 따라',
-          }[m]!,
-          onSelected: (m) => app.updateSettings((x) => x.themeMode = m),
-        ),
-        gap,
-        SwitchRow(
-          title: '움직임 줄이기',
-          subtitle: '화면 움직임 효과를 꺼요',
-          value: s.reduceMotion,
-          onChanged: (v) => app.updateSettings((x) => x.reduceMotion = v),
-        ),
-        const SizedBox(height: 8),
-        SwitchRow(
-          title: '진동',
-          subtitle: '버튼을 누를 때 살짝 진동',
-          value: s.haptics,
-          onChanged: (v) => app.updateSettings((x) => x.haptics = v),
-        ),
-        const SizedBox(height: 8),
-        SwitchRow(
-          title: '소리로 답 읽기',
-          subtitle: '음성 비서가 답을 읽어 줘요',
-          value: s.sound,
-          onChanged: (v) => app.updateSettings((x) => x.sound = v),
-        ),
-
-        const SectionTitle('보안'),
-        Text('자동 잠금', style: t.titleMedium),
-        const SizedBox(height: 6),
-        ChoiceChips<int>(
-          values: const [60, 120, 300, 600],
-          selected: s.autoLockSeconds,
-          label: (v) => '${v ~/ 60}분',
-          onSelected: (v) => app.updateSettings((x) => x.autoLockSeconds = v),
-        ),
-        gap,
-        _BiometricRow(),
-        const SizedBox(height: 8),
-        SwitchRow(
-          title: '유출된 비밀번호 확인',
-          subtitle: '켜면 금고 건강 보고서에서 확인할 수 있어요(비밀번호는 보내지 않음)',
-          value: prefs.breachCheckEnabled,
-          onChanged: (v) => app.mutate((d) => d.prefs.breachCheckEnabled = v),
-        ),
-        gap,
-        BigButton(
-          label: '마스터 비밀번호 바꾸기',
-          icon: Icons.password_rounded,
-          kind: ButtonKind.plain,
-          onPressed: () => _go(context, const ChangePasswordScreen()),
-        ),
-        gap,
-        BigButton(
-          label: '복구 코드 새로 만들기',
-          icon: Icons.key_rounded,
-          kind: ButtonKind.plain,
-          onPressed: () => _go(context, const NewRecoveryCodeScreen()),
-        ),
-
-        const SectionTitle('연결'),
-        _LinkTile(
-          emoji: 'magic_wand',
-          title: 'AI 연결(API 키)',
-          status: prefs.aiConnected ? '연결됨' : '연결 안 됨',
-          ok: prefs.aiConnected,
-          onTap: () => _go(context, const AiSettingsScreen()),
-        ),
-        const SizedBox(height: 8),
-        _LinkTile(
-          emoji: 'envelope',
-          title: '지메일 연결(읽기 전용)',
-          status: prefs.gmailConnected ? '연결됨' : '연결 안 됨',
-          ok: prefs.gmailConnected,
-          onTap: () => _go(context, const GmailSettingsScreen()),
-        ),
-        const SizedBox(height: 8),
-        Text('음성 서비스', style: t.titleMedium),
-        const SizedBox(height: 6),
-        ChoiceChips<String>(
-          values: const ['device', 'external'],
-          selected: s.voiceProvider,
-          label: (v) => v == 'device' ? '기기 내장 음성(기본)' : '외부 서비스(준비 중)',
-          onSelected: (v) => app.updateSettings((x) => x.voiceProvider = v),
-        ),
-
-        const SectionTitle('데이터'),
-        BigButton(
-          label: '백업 내보내기·복원',
-          icon: Icons.inventory_2_rounded,
-          kind: ButtonKind.accent,
-          onPressed: () => _go(context, const BackupScreen()),
-        ),
-        gap,
-        _ExchangeRate(),
-
-        const SectionTitle('도움'),
+        const SizedBox(height: AppTokens.s3),
         BigButton(
           label: '문제 신고(기록 내보내기)',
           icon: Icons.bug_report_rounded,
           kind: ButtonKind.plain,
           onPressed: () => reportProblem(context),
         ),
-        gap,
-        FlatCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              InfoRow('앱 버전', app.services.appVersion),
-              const InfoRow('아이폰 지원', '준비 중'),
-              const InfoRow('그림', 'Microsoft Fluent Emoji 3D (MIT 라이선스)'),
-              const InfoRow('글꼴', 'Noto Sans KR (SIL Open Font License)'),
-            ],
-          ),
-        ),
-        gap,
-        BigButton(
-          label: '오픈소스 라이선스 보기',
-          kind: ButtonKind.plain,
-          onPressed: () => showLicensePage(
-            context: context,
-            applicationName: '로그인 계정과 구독 결제 관리 비서',
-            applicationVersion: app.services.appVersion,
-          ),
-        ),
+        const SizedBox(height: AppTokens.cardGap),
+        // 연결 상태 한눈에
+        const ConnectionStatusRow(),
+        const SizedBox(height: AppTokens.cardGap),
 
-        const SectionTitle('위험'),
-        BigButton(
-          label: '이 사용자 금고 초기화(모두 지우기)',
-          icon: Icons.delete_forever_rounded,
-          kind: ButtonKind.danger,
-          onPressed: () => _reset(context),
+        SettingsGroup(
+          emoji: 'locked',
+          title: '금고·잠금',
+          children: [
+            Text('자동 잠금', style: t.titleMedium),
+            ChoiceChips<int>(
+              values: const [60, 120, 300, 600],
+              selected: s.autoLockSeconds,
+              label: (v) => '${v ~/ 60}분',
+              onSelected: (v) =>
+                  app.updateSettings((x) => x.autoLockSeconds = v),
+            ),
+            _BiometricRow(),
+            SwitchRow(
+              title: '유출된 비밀번호 확인',
+              subtitle: '켜면 금고 건강 보고서에서 확인(비밀번호는 보내지 않음)',
+              value: prefs.breachCheckEnabled,
+              onChanged: (v) =>
+                  app.mutate((d) => d.prefs.breachCheckEnabled = v),
+            ),
+            BigButton(
+              label: '마스터 비밀번호 바꾸기',
+              icon: Icons.password_rounded,
+              kind: ButtonKind.plain,
+              raised: false,
+              onPressed: () => _go(context, const ChangePasswordScreen()),
+            ),
+            BigButton(
+              label: '복구 코드 새로 만들기',
+              icon: Icons.key_rounded,
+              kind: ButtonKind.plain,
+              raised: false,
+              onPressed: () => _go(context, const NewRecoveryCodeScreen()),
+            ),
+          ],
+        ),
+        SettingsGroup(
+          emoji: 'envelope',
+          title: '지메일',
+          children: [
+            StatusBadge(
+              prefs.gmailConnected ? StatusKind.safe : StatusKind.progress,
+              prefs.gmailConnected
+                  ? '연결됨(읽기 전용)'
+                  : '연결 안 함 — 없어도 모든 기능을 쓸 수 있어요',
+            ),
+            BigButton(
+              label: prefs.gmailConnected ? '지메일 연결 관리' : '지메일 연결 도우미',
+              icon: Icons.mark_email_read_rounded,
+              kind: ButtonKind.accent,
+              raised: false,
+              onPressed: () => _go(context, const GmailSettingsScreen()),
+            ),
+          ],
+        ),
+        SettingsGroup(
+          emoji: 'magic_wand',
+          title: 'AI',
+          children: [
+            StatusBadge(
+              prefs.aiConnected ? StatusKind.safe : StatusKind.progress,
+              prefs.aiConnected
+                  ? '연결됨 · 한 달 한도 ${prefs.aiMonthlyLimitWon}원'
+                  : '연결 안 함 — 메일은 규칙으로 분석해요',
+            ),
+            BigButton(
+              label: 'AI 연결(API 키)',
+              icon: Icons.auto_awesome_rounded,
+              kind: ButtonKind.accent,
+              raised: false,
+              onPressed: () => _go(context, const AiSettingsScreen()),
+            ),
+          ],
+        ),
+        SettingsGroup(
+          emoji: 'light_bulb',
+          title: '보기',
+          children: [
+            Text('글씨 크기', style: t.titleMedium),
+            ChoiceChips<int>(
+              values: const [0, 1, 2],
+              selected: s.textScaleLevel,
+              label: (i) => DeviceSettings.textScaleLabels[i],
+              onSelected: (i) =>
+                  app.updateSettings((x) => x.textScaleLevel = i),
+            ),
+            Text('화면 모드', style: t.titleMedium),
+            ChoiceChips<String>(
+              values: const ['light', 'dark', 'contrast', 'system'],
+              selected: s.themeMode,
+              label: (m) => const {
+                'light': '밝게',
+                'dark': '어둡게',
+                'contrast': '고대비',
+                'system': '기기 설정 따라',
+              }[m]!,
+              onSelected: (m) => app.updateSettings((x) => x.themeMode = m),
+            ),
+            SwitchRow(
+              title: '움직임 줄이기',
+              subtitle: '화면 움직임 효과를 꺼요',
+              value: s.reduceMotion,
+              onChanged: (v) => app.updateSettings((x) => x.reduceMotion = v),
+            ),
+            SwitchRow(
+              title: '진동',
+              subtitle: '버튼을 누를 때 살짝 진동',
+              value: s.haptics,
+              onChanged: (v) => app.updateSettings((x) => x.haptics = v),
+            ),
+            SwitchRow(
+              title: '소리',
+              subtitle: '버튼 소리·음성 비서가 답 읽기',
+              value: s.sound,
+              onChanged: (v) => app.updateSettings((x) => x.sound = v),
+            ),
+            Text('음성 서비스', style: t.titleMedium),
+            ChoiceChips<String>(
+              values: const ['device', 'external'],
+              selected: s.voiceProvider,
+              label: (v) => v == 'device' ? '기기 내장 음성(기본)' : '외부 서비스(준비 중)',
+              onSelected: (v) => app.updateSettings((x) => x.voiceProvider = v),
+            ),
+          ],
+        ),
+        SettingsGroup(
+          emoji: 'sparkles',
+          title: '앱 꾸미기',
+          children: const [AppearanceSection()],
+        ),
+        SettingsGroup(
+          emoji: 'package',
+          title: '백업·복원',
+          children: [
+            Text(
+              '휴대폰을 바꾸거나 고장 날 때를 대비해 가끔 백업 파일을 만들어 PC·USB 에 보관하세요.',
+              style: t.bodyLarge,
+            ),
+            BigButton(
+              label: '백업 만들기·파일 불러오기(복원)',
+              icon: Icons.inventory_2_rounded,
+              kind: ButtonKind.accent,
+              raised: false,
+              onPressed: () => _go(context, const BackupScreen()),
+            ),
+            _ExchangeRate(),
+          ],
+        ),
+        SettingsGroup(
+          emoji: 'bust_in_silhouette',
+          title: '도움·정보',
+          children: [
+            InfoRow('앱 버전', app.services.appVersion),
+            const InfoRow('아이폰 지원', '준비 중'),
+            const InfoRow('그림', 'Microsoft Fluent Emoji 3D (MIT 라이선스)'),
+            const InfoRow('글꼴', 'Noto Sans KR (SIL Open Font License)'),
+            InfoRow('생체 인증', bioOn ? '켜짐' : '꺼짐'),
+            BigButton(
+              label: '오픈소스 라이선스 보기',
+              kind: ButtonKind.plain,
+              raised: false,
+              onPressed: () => showLicensePage(
+                context: context,
+                applicationName: '로그인 계정과 구독 결제 관리 비서',
+                applicationVersion: app.services.appVersion,
+              ),
+            ),
+          ],
+        ),
+        SettingsGroup(
+          emoji: 'warning',
+          title: '위험',
+          danger: true,
+          children: [
+            Text('이 사용자의 구독·계정·비밀번호를 모두 지워요. 먼저 백업하세요.', style: t.bodyLarge),
+            BigButton(
+              label: '이 사용자 금고 초기화(모두 지우기)',
+              icon: Icons.delete_forever_rounded,
+              kind: ButtonKind.danger,
+              onPressed: () => _reset(context),
+            ),
+          ],
         ),
       ],
     );
@@ -247,45 +295,6 @@ Future<String?> askMasterPassword(BuildContext context, String message) async {
   return r;
 }
 
-class _LinkTile extends StatelessWidget {
-  const _LinkTile({
-    required this.emoji,
-    required this.title,
-    required this.status,
-    required this.ok,
-    required this.onTap,
-  });
-  final String emoji, title, status;
-  final bool ok;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => FlatCard(
-    onTap: onTap,
-    child: Row(
-      children: [
-        Emoji3D(emoji, size: 44),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 4),
-              StatusBadge(
-                ok ? StatusKind.safe : StatusKind.progress,
-                status,
-                compact: true,
-              ),
-            ],
-          ),
-        ),
-        const Icon(Icons.chevron_right_rounded, size: 32),
-      ],
-    ),
-  );
-}
-
 class _BiometricRow extends StatefulWidget {
   @override
   State<_BiometricRow> createState() => _BiometricRowState();
@@ -310,8 +319,8 @@ class _BiometricRowState extends State<_BiometricRow> {
     return SwitchRow(
       title: '지문·얼굴로 열기',
       subtitle: available == false
-          ? '이 기기에서는 쓸 수 없어요'
-          : '안 될 때는 마스터 비밀번호로 열 수 있어요',
+          ? '이 기기에서는 쓸 수 없어요. 마스터 비밀번호로 열면 돼요. (지문을 쓰려면 기기 설정 → 보안에서 먼저 등록)'
+          : '안 될 때는 언제든 마스터 비밀번호로 열 수 있어요',
       value: on,
       onChanged: available != true
           ? null
@@ -523,6 +532,29 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
         ),
         gap,
         BigField(controller: key, label: 'API 키', obscure: true),
+        const SizedBox(height: 8),
+        BigButton(
+          label: 'AI 열쇠 파일 불러오기',
+          icon: Icons.upload_file_rounded,
+          kind: ButtonKind.plain,
+          raised: false,
+          onPressed: () async {
+            final text = await app.services.files.openText(
+              extensions: ['txt', 'key'],
+            );
+            if (text == null || !context.mounted) return;
+            try {
+              setState(() => key.text = parseAiKeyFile(text));
+              context.toast('열쇠를 불러왔어요. "저장"을 눌러 주세요.');
+            } on ImportFileException catch (e) {
+              await showErrorDialog(
+                context,
+                stage: FailStage.file,
+                message: e.message,
+              );
+            }
+          },
+        ),
         gap,
         Text('모델', style: t.titleMedium),
         const SizedBox(height: 6),
@@ -642,6 +674,96 @@ class _GmailSettingsScreenState extends State<GmailSettingsScreen> {
     }
   }
 
+  Future<void> _loadJson() async {
+    final app = context.appRead;
+    final text = await app.services.files.openText(extensions: ['json']);
+    if (text == null || !mounted) return;
+    try {
+      final (id, sec) = parseGoogleClientJson(text);
+      setState(() {
+        clientId.text = id;
+        secret.text = sec;
+      });
+      await app.mutate((d) {
+        d.prefs.gmailClientId = id;
+        d.prefs.gmailClientSecret = sec;
+      });
+      if (mounted) context.toast('구글 JSON 을 불러왔어요. 이제 "구글 계정으로 연결"을 눌러 주세요.');
+    } on ImportFileException catch (e) {
+      if (mounted) {
+        await showErrorDialog(
+          context,
+          stage: FailStage.file,
+          message: e.message,
+          nextActionLabel: '다른 파일 고르기',
+          onNextAction: _loadJson,
+        );
+      }
+    }
+  }
+
+  Widget _step(
+    int n,
+    String title,
+    String body, {
+    String? url,
+    String? button,
+  }) {
+    final t = Theme.of(context).textTheme;
+    final p = context.palette;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppTokens.s3),
+      child: FlatCard(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: p.primary,
+                shape: BoxShape.circle,
+              ),
+              child: Text(
+                '$n',
+                textScaler: TextScaler.noScaling,
+                style: TextStyle(
+                  color: p.onPrimary,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 20,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(title, style: t.titleMedium),
+                  const SizedBox(height: 4),
+                  Text(body, style: t.bodyLarge),
+                  if (url != null) ...[
+                    const SizedBox(height: 8),
+                    BigButton(
+                      label: button ?? '바로가기',
+                      icon: Icons.open_in_new_rounded,
+                      kind: ButtonKind.plain,
+                      raised: false,
+                      onPressed: () => context.appRead.services.launcher.open(
+                        Uri.parse(url),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final app = context.app;
@@ -653,20 +775,64 @@ class _GmailSettingsScreenState extends State<GmailSettingsScreen> {
       children: [
         StatusBadge(
           connected ? StatusKind.safe : StatusKind.progress,
-          connected ? '연결됨(읽기 전용)' : '연결 안 됨',
+          connected ? '연결됨(읽기 전용)' : '연결 안 함',
         ),
         gap,
         Text(
-          '결제 영수증·크레딧 안내 메일을 찾아 자동으로 채워 드려요. 메일은 읽기만 하고, 내용은 저장하지 않아요. '
-          '연결하지 않아도 앱은 모두 쓸 수 있어요(직접 입력·메일 붙여넣기).\n\n'
-          '연결하려면 구글 클라우드에서 "데스크톱 앱" OAuth 클라이언트 ID를 만들어 아래에 넣어 주세요. 방법은 README.md 에 있어요.',
+          '결제 영수증·크레딧 안내 메일을 찾아 자동으로 채워 드려요. 메일은 읽기만 하고, 필요한 부분만 분석하며 저장하지 않아요. '
+          '연결하지 않아도 앱은 모두 쓸 수 있어요(직접 입력·메일 붙여넣기).',
           style: t.bodyLarge,
+        ),
+        const SectionTitle('구글 연결 준비하기 (한 번만, 약 10분)'),
+        _step(
+          1,
+          '구글 클라우드 콘솔에서 새 프로젝트 만들기',
+          '구글 계정으로 로그인 → 프로젝트 이름은 아무거나(예: 구독비서).',
+          url: 'https://console.cloud.google.com/projectcreate',
+          button: '콘솔 열기',
+        ),
+        _step(
+          2,
+          'Gmail API 사용 설정',
+          '열린 화면에서 "사용" 버튼을 누르세요.',
+          url: 'https://console.cloud.google.com/apis/library/gmail.googleapis.com',
+          button: 'Gmail API 화면 열기',
+        ),
+        _step(
+          3,
+          '동의 화면 만들기 + 테스트 사용자 등록',
+          '사용자 유형 "외부", 앱 이름 아무거나. "테스트 사용자"에 내 지메일 주소를 꼭 추가하세요.',
+          url: 'https://console.cloud.google.com/apis/credentials/consent',
+          button: '동의 화면 열기',
+        ),
+        _step(
+          4,
+          '클라이언트 ID 만들기 — 유형은 "데스크톱 앱"',
+          '사용자 인증 정보 → 사용자 인증 정보 만들기 → OAuth 클라이언트 ID → 애플리케이션 유형 "데스크톱 앱" → 만들기 → "JSON 다운로드".',
+          url: 'https://console.cloud.google.com/apis/credentials',
+          button: '사용자 인증 정보 열기',
+        ),
+        _step(
+          5,
+          '내려받은 JSON 불러오기',
+          '아래 "구글 JSON 파일 불러오기"를 누르고 4번에서 받은 파일을 고르세요. (직접 붙여 넣어도 돼요)',
+        ),
+        BigButton(
+          label: '구글 JSON 파일 불러오기',
+          icon: Icons.upload_file_rounded,
+          kind: ButtonKind.accent,
+          onPressed: _loadJson,
         ),
         gap,
         BigField(controller: clientId, label: '클라이언트 ID'),
         gap,
         BigField(controller: secret, label: '클라이언트 비밀번호(있으면)', obscure: true),
-        gapBig,
+        gap,
+        _step(
+          6,
+          '구글 계정으로 연결',
+          '브라우저에서 "확인되지 않은 앱" 경고가 나오면 → "고급" → "(앱 이름)(으)로 이동" → 허용. 내가 만든 앱이라 괜찮아요.',
+        ),
         busy
             ? const Center(child: CircularProgressIndicator())
             : BigButton(
@@ -674,6 +840,15 @@ class _GmailSettingsScreenState extends State<GmailSettingsScreen> {
                 icon: Icons.link_rounded,
                 onPressed: _connect,
               ),
+        gap,
+        FlatCard(
+          status: StatusKind.caution,
+          child: Text(
+            '알아 두세요: 구글 "테스트" 상태의 앱은 연결이 7일마다 끊겨요. 끊기면 이 화면에서 "다시 연결"만 누르면 돼요. '
+            '그동안에도 직접 입력·메일 붙여넣기는 그대로 쓸 수 있어요.',
+            style: t.bodyLarge,
+          ),
+        ),
         if (connected) ...[
           gap,
           BigButton(
@@ -828,7 +1003,7 @@ class _BackupScreenState extends State<BackupScreen> {
           ),
           gap,
           BigButton(
-            label: '백업 파일로 복원',
+            label: '백업 파일 불러오기(복원)',
             icon: Icons.restore_rounded,
             kind: ButtonKind.caution,
             onPressed: _restore,

@@ -194,6 +194,81 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('가장 먼저 눈에 띄는 것이 가장 중요한 것: 큰 숫자 > 오늘 할 일 > 이번 주 결제 > 타일 > 상태 띠', (
+    tester,
+  ) async {
+    setSize(tester, const Size(400, 3000));
+    final rig = await unlockedRig(tester, theme: 'light', textLevel: 1);
+    await tester.pumpWidget(VaultApp(controller: rig.controller));
+    await settle(tester);
+    // 화면에서 가장 큰 글자 = 이번 달 구독료 숫자
+    final texts = tester
+        .widgetList<Text>(find.byType(Text))
+        .where((t) => t.data != null && t.style?.fontSize != null)
+        .toList();
+    texts.sort((a, b) => b.style!.fontSize!.compareTo(a.style!.fontSize!));
+    expect(texts.first.data, endsWith('원'));
+    expect(find.text('이번 달 구독료'), findsOneWidget);
+    double y(String text) => tester.getTopLeft(find.text(text).first).dy;
+    expect(y('이번 달 구독료'), lessThan(y('오늘 할 일')));
+    expect(y('오늘 할 일'), lessThan(y('이번 주 결제 예정')));
+    expect(y('이번 주 결제 예정'), lessThan(y('구독 결제')));
+    expect(y('구독 결제'), lessThan(y('연결 상태')));
+    // 같은 크기 상자 3개 이상 나란히 없음: 타일은 한 줄에 최대 2개
+    final tileTops = <double, int>{};
+    for (final e
+        in find
+            .text('구독 결제')
+            .evaluate()
+            .followedBy(find.text('계정·비밀번호').evaluate())
+            .followedBy(find.text('금고 건강').evaluate())
+            .followedBy(find.text('만료 알림').evaluate())) {
+      final top = tester.getTopLeft(find.byWidget(e.widget)).dy.roundToDouble();
+      tileTops[top] = (tileTops[top] ?? 0) + 1;
+    }
+    expect(tileTops.values.every((n) => n <= 2), isTrue);
+  });
+
+  testWidgets('연결 상태가 저장 즉시 홈에 반영', (tester) async {
+    setSize(tester, const Size(400, 3000));
+    final rig = await unlockedRig(tester, theme: 'light', textLevel: 1);
+    await tester.pumpWidget(VaultApp(controller: rig.controller));
+    await settle(tester);
+    expect(find.text('지메일: 연결 안 함'), findsOneWidget);
+    expect(find.text('AI: 연결 안 함'), findsOneWidget);
+    await tester.runAsync(
+      () => rig.controller.mutate((d) {
+        d.prefs.gmailRefreshToken = 'fake';
+        d.prefs.aiApiKey = 'fake';
+      }),
+    );
+    await settle(tester);
+    expect(find.text('지메일: 연결됨'), findsOneWidget);
+    expect(find.text('AI: 연결됨'), findsOneWidget);
+  });
+
+  test('색 테마 4종 × 밝게/어둡게: 주요 버튼·큰 숫자 대비 AA', () {
+    for (final base in [AppPalette.light, AppPalette.dark]) {
+      for (final theme in AppPalette.colorThemes.keys) {
+        final p = base.withColorTheme(theme);
+        expect(
+          contrastRatio(p.onPrimary, p.primary),
+          greaterThanOrEqualTo(4.5),
+          reason: '${p.name} 버튼',
+        );
+        expect(
+          contrastRatio(p.primary, p.surface),
+          greaterThanOrEqualTo(4.5),
+          reason: '${p.name} 글자',
+        );
+      }
+    }
+    expect(
+      AppPalette.contrast.withColorTheme('plum'),
+      same(AppPalette.contrast),
+    );
+  });
+
   group('색 대비(WCAG AA)', () {
     for (final p in AppPalette.all) {
       test(p.name, () {

@@ -358,7 +358,8 @@ class StatusBadge extends StatelessWidget {
   }
 }
 
-/// 목록용 가벼운 평면 카드(그림자 없음). 상태가 있으면 테두리 색으로 표시.
+/// 카드: 바탕색을 채우고 부드러운 그림자(테두리만 있는 상자 금지).
+/// 상태가 있으면 두꺼운 상태색 테두리로 표시(만료 임박 노랑, 위험 빨강 등).
 class FlatCard extends StatelessWidget {
   const FlatCard({
     super.key,
@@ -366,33 +367,45 @@ class FlatCard extends StatelessWidget {
     this.status,
     this.onTap,
     this.padding,
+    this.color,
   });
   final Widget child;
   final StatusKind? status;
   final VoidCallback? onTap;
   final EdgeInsets? padding;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    final borderColor = status == null ? p.border : p.status(status!);
-    return Material(
-      color: p.surface,
-      shape: RoundedRectangleBorder(
+    final BorderSide side = status != null
+        ? BorderSide(color: p.status(status!), width: 3)
+        : (p.name == 'contrast'
+              ? BorderSide(color: p.border, width: 2)
+              : BorderSide.none);
+    return DecoratedBox(
+      decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(AppTokens.radiusCard),
-        side: BorderSide(color: borderColor, width: status == null ? 1.5 : 3),
+        boxShadow: AppTokens.soft(p),
       ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap == null
-            ? null
-            : () {
-                context.tapFeedback();
-                onTap!();
-              },
-        child: Padding(
-          padding: padding ?? const EdgeInsets.all(AppTokens.s4),
-          child: child,
+      child: Material(
+        color: color ?? p.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTokens.radiusCard),
+          side: side,
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap == null
+              ? null
+              : () {
+                  context.tapFeedback();
+                  onTap!();
+                },
+          child: Padding(
+            padding: padding ?? const EdgeInsets.all(AppTokens.s4),
+            child: child,
+          ),
         ),
       ),
     );

@@ -281,13 +281,16 @@ class _LockScreenState extends State<LockScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
           children: [
-            const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                LockAnimation(open: false, size: 96),
-                SizedBox(width: 8),
-                Mascot(MascotMood.locked, size: 96),
-              ],
+            // 큰 3D 자물쇠(짧게 커지며 나타남, 0.5초 — 잠금 해제 속도와 무관)
+            Center(
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: context.reduceMotion ? 1 : 0.7, end: 1),
+                duration: context.motion(const Duration(milliseconds: 500)),
+                curve: Curves.easeOutBack,
+                builder: (_, v, child) =>
+                    Transform.scale(scale: v, child: child),
+                child: const Emoji3D('locked', size: 132),
+              ),
             ),
             gap,
             Text(

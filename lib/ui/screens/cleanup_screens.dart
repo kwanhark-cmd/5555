@@ -4,6 +4,7 @@ import '../../logic/breach.dart';
 import '../../logic/cleanup.dart';
 import '../../logic/money.dart';
 import '../theme/tokens.dart';
+import '../widgets/cards.dart';
 import '../widgets/common.dart';
 import 'accounts_screens.dart';
 import 'subscriptions_screens.dart';
@@ -240,27 +241,32 @@ class _HealthScreenState extends State<HealthScreen> {
       restoreId: 'health',
       children: [
         FlatCard(
-          status: r.score >= 80
-              ? StatusKind.safe
-              : (r.score >= 50 ? StatusKind.caution : StatusKind.danger),
-          child: Row(
+          child: Column(
             children: [
-              Mascot(
-                r.score >= 80 ? MascotMood.celebrate : MascotMood.warning,
-                size: 80,
+              ScoreRing(score: r.score, size: 140),
+              const SizedBox(height: 12),
+              Text(
+                r.score >= 80 ? '아주 잘 관리하고 계세요!' : '아래 항목을 바꾸면 더 안전해져요.',
+                textAlign: TextAlign.center,
+                style: t.titleMedium,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('${r.score}점', style: t.headlineMedium),
-                    Text(
-                      r.score >= 80 ? '아주 잘 관리하고 계세요!' : '아래 항목을 바꾸면 더 안전해져요.',
-                      style: t.bodyLarge,
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.center,
+                children: [
+                  for (final i in HealthIssue.values)
+                    StatusBadge(
+                      r.count(i) == 0
+                          ? StatusKind.safe
+                          : (i == HealthIssue.missing
+                                ? StatusKind.progress
+                                : StatusKind.caution),
+                      '${i.label} ${r.count(i)}',
+                      compact: true,
                     ),
-                  ],
-                ),
+                ],
               ),
             ],
           ),

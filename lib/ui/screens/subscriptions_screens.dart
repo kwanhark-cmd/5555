@@ -7,6 +7,7 @@ import '../../logic/dates.dart';
 import '../../logic/money.dart';
 import '../../logic/services_catalog.dart';
 import '../theme/tokens.dart';
+import '../widgets/cards.dart';
 import '../widgets/common.dart';
 import 'accounts_screens.dart';
 import 'mail_screens.dart';
@@ -31,7 +32,6 @@ class SubscriptionsScreen extends StatelessWidget {
     final d = app.data;
     final now = app.now();
     final t = Theme.of(context).textTheme;
-    final p = context.palette;
     final sum = summarize(d);
     final timeline = renewalsInMonth(d, now);
     final subs = [...d.subscriptions]
@@ -50,52 +50,10 @@ class SubscriptionsScreen extends StatelessWidget {
           id: 'subs',
           text: '구독을 추가하면 월·연간 총액과 결제일을 자동으로 계산해 드려요. 결제 메일을 붙여 넣어도 돼요.',
         ),
-        Row(
-          children: [
-            Expanded(
-              child: FlatCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('한 달', style: t.bodyLarge),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        formatWon(sum.monthly),
-                        style: TextStyle(
-                          fontSize: 30,
-                          fontWeight: FontWeight.w900,
-                          color: p.primary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: FlatCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('1년', style: t.bodyLarge),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        formatWon(sum.yearly),
-                        style: TextStyle(
-                          fontSize: 30,
-                          fontWeight: FontWeight.w900,
-                          color: p.text,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
+        HeroNumberCard(
+          label: '이번 달 구독료',
+          value: formatWon(sum.monthly),
+          caption: '1년이면 ${formatWon(sum.yearly)} · 구독 ${sum.activeCount}개',
         ),
         if (d.subscriptions.any((s) => s.currency == Currency.usd))
           Padding(
@@ -148,9 +106,20 @@ class SubscriptionsScreen extends StatelessWidget {
           ),
         SectionTitle('내 구독 ${d.subscriptions.length}개'),
         if (subs.isEmpty)
-          const EmptyState(
+          EmptyState(
             emoji: 'credit_card',
-            message: '아직 등록된 구독이 없어요.\n"구독 추가"를 눌러 시작해 보세요.',
+            message: '아직 등록된 구독이 없어요.\n직접 넣거나 결제 메일로 채워 보세요.',
+            action: BigButton(
+              label: '첫 구독 넣기',
+              icon: Icons.add_rounded,
+              kind: ButtonKind.safe,
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const SubscriptionEditScreen(),
+                ),
+              ),
+            ),
           )
         else
           for (final s in subs) ...[
@@ -236,43 +205,75 @@ class SubscriptionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
+    final p = context.palette;
     final next = upcomingRenewal(sub, now);
     final left = daysUntil(next, now);
     final st = subStatus(sub, now);
     return FlatCard(
       status: st == StatusKind.progress ? null : st,
+      padding: EdgeInsets.zero,
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => SubscriptionDetailScreen(id: sub.id)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(sub.serviceName, style: t.titleLarge),
-          Text(formatAmount(sub.amount, sub.currency), style: t.titleMedium),
-          const SizedBox(height: 4),
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              if (sub.isPaused)
-                const StatusBadge(StatusKind.safe, '일시 중지', compact: true)
-              else
-                StatusBadge(
-                  st,
-                  '${formatKoreanDate(next)} · ${relativeDays(left)}',
-                  compact: true,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 왼쪽 서비스 색 띠
+            Container(width: 8, color: serviceColor(sub.serviceName)),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(AppTokens.s4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ServiceAvatar(sub.serviceName, size: 48),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(sub.serviceName, style: t.titleLarge),
+                          Text(
+                            '${formatAmount(sub.amount, sub.currency)} · ${sub.cycle.label}'
+                            '${sub.cardLast4 == null ? '' : ' · 카드 끝 ${sub.cardLast4}'}',
+                            style: t.bodyLarge?.copyWith(color: p.textMuted),
+                          ),
+                          const SizedBox(height: 6),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            children: [
+                              if (sub.isPaused)
+                                const StatusBadge(
+                                  StatusKind.safe,
+                                  '일시 중지',
+                                  compact: true,
+                                )
+                              else
+                                StatusBadge(
+                                  st,
+                                  '다음 결제 ${formatKoreanDate(next)} · ${relativeDays(left)}',
+                                  compact: true,
+                                ),
+                              if (sub.isCancelCandidate)
+                                const StatusBadge(
+                                  StatusKind.danger,
+                                  '해지 후보',
+                                  compact: true,
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-              if (sub.isCancelCandidate)
-                const StatusBadge(StatusKind.danger, '해지 후보', compact: true),
-              Text(
-                '${sub.cycle.label} 결제${sub.cardLast4 == null ? '' : ' · 카드 끝 ${sub.cardLast4}'}',
-                style: t.bodyMedium,
               ),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }

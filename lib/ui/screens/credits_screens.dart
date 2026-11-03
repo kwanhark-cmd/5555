@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../data/models.dart';
 import '../../logic/dates.dart';
 import '../theme/tokens.dart';
+import '../widgets/cards.dart';
 import '../widgets/common.dart';
 import 'mail_screens.dart';
 import 'subscriptions_screens.dart' show DatePickButton;
@@ -65,9 +66,18 @@ class CreditsScreen extends StatelessWidget {
         ),
         SectionTitle('남은 항목 ${active.length}개'),
         if (active.isEmpty)
-          const EmptyState(
+          EmptyState(
             emoji: 'hourglass_not_done',
-            message: '등록된 크레딧·체험판이 없어요.',
+            message: '등록된 크레딧·체험판이 없어요.\n무료 크레딧이나 체험판 마감일을 넣어 두면 미리 알려 드려요.',
+            action: BigButton(
+              label: '첫 마감일 넣기',
+              icon: Icons.add_alarm_rounded,
+              kind: ButtonKind.safe,
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CreditEditScreen()),
+              ),
+            ),
           )
         else
           for (final c in active) ...[
@@ -101,6 +111,7 @@ class _CreditCard extends StatelessWidget {
     final t = Theme.of(context).textTheme;
     final left = daysUntil(c.expiresAt, now);
     final st = creditStatus(c, now);
+    final snoozed = c.snoozeUntil != null && daysUntil(c.snoozeUntil!, now) > 0;
     final label = c.done
         ? '정리함'
         : (left < 0
@@ -115,16 +126,51 @@ class _CreditCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(c.serviceName, style: t.titleLarge),
-          Text(
-            [
-              c.kind.label,
-              if (c.amountText.isNotEmpty) c.amountText,
-            ].join(' · '),
-            style: t.bodyLarge,
+          Row(
+            children: [
+              ServiceAvatar(c.serviceName, size: 48),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(c.serviceName, style: t.titleLarge),
+                    Text(
+                      [
+                        c.kind.label,
+                        if (c.amountText.isNotEmpty) c.amountText,
+                      ].join(' · '),
+                      style: t.bodyLarge,
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           StatusBadge(st, label, compact: true),
+          if (snoozed)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                '${formatKoreanDate(c.snoozeUntil!)}에 다시 알려 드려요',
+                style: t.bodyMedium,
+              ),
+            )
+          else if (!c.done && left <= 7) ...[
+            const SizedBox(height: 10),
+            BigButton(
+              label: '내일 다시 알림',
+              icon: Icons.snooze_rounded,
+              kind: ButtonKind.plain,
+              raised: false,
+              onPressed: () async {
+                final tomorrow = DateTime(now.year, now.month, now.day + 1);
+                await context.appRead.mutate((_) => c.snoozeUntil = tomorrow);
+                if (context.mounted) context.toast('내일 다시 알려 드릴게요.');
+              },
+            ),
+          ],
         ],
       ),
     );

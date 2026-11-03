@@ -7,6 +7,7 @@ import '../../logic/csv_import.dart';
 import '../../logic/dates.dart';
 import '../../logic/services_catalog.dart';
 import '../theme/tokens.dart';
+import '../widgets/cards.dart';
 import '../widgets/common.dart';
 import 'subscriptions_screens.dart' show SubscriptionDetailScreen;
 
@@ -112,7 +113,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
         ),
         gap,
         BigButton(
-          label: 'CSV 가져오기 (구글 비밀번호 관리자)',
+          label: 'CSV 파일 불러오기 (구글 비밀번호 관리자)',
           icon: Icons.upload_file_rounded,
           kind: ButtonKind.plain,
           onPressed: _importCsv,
@@ -129,9 +130,15 @@ class _AccountsScreenState extends State<AccountsScreen> {
         ),
         SectionTitle('계정 ${list.length}개'),
         if (list.isEmpty)
-          const EmptyState(
+          EmptyState(
             emoji: 'busts_in_silhouette',
-            message: '아직 등록된 계정이 없어요.',
+            message: '아직 등록된 계정이 없어요.\n하나씩 넣거나, 구글 비밀번호 관리자 CSV 파일을 불러오세요.',
+            action: BigButton(
+              label: 'CSV 파일 불러오기',
+              icon: Icons.upload_file_rounded,
+              kind: ButtonKind.safe,
+              onPressed: _importCsv,
+            ),
           )
         else
           for (final a in list) ...[
@@ -151,7 +158,9 @@ class _AccountCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
+    final p = context.palette;
     final bad = issues.where((i) => i != HealthIssue.missing).toList();
+    final id = a.loginId.isNotEmpty ? a.loginId : a.signupEmail;
     return FlatCard(
       status: bad.isEmpty ? null : StatusKind.caution,
       onTap: () => Navigator.push(
@@ -163,17 +172,38 @@ class _AccountCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Expanded(child: Text(a.serviceName, style: t.titleLarge)),
-              Text(a.category, style: t.bodyMedium),
+              ServiceAvatar(a.serviceName, size: 52),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(a.serviceName, style: t.titleLarge),
+                    Text(
+                      id.isEmpty ? '아이디 없음' : id,
+                      style: t.bodyLarge?.copyWith(color: p.textMuted),
+                    ),
+                  ],
+                ),
+              ),
+              if (id.isNotEmpty)
+                IconButton.filledTonal(
+                  tooltip: '아이디 복사',
+                  iconSize: 26,
+                  constraints: const BoxConstraints(
+                    minWidth: 52,
+                    minHeight: 52,
+                  ),
+                  onPressed: () async {
+                    await context.appRead.copyPlain(id);
+                    if (context.mounted) context.toast('아이디를 복사했어요.');
+                  },
+                  icon: const Icon(Icons.copy_rounded),
+                ),
             ],
           ),
-          if (a.loginId.isNotEmpty || a.signupEmail.isNotEmpty)
-            Text(
-              a.loginId.isNotEmpty ? a.loginId : a.signupEmail,
-              style: t.bodyLarge,
-            ),
           if (bad.isNotEmpty) ...[
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             Wrap(
               spacing: 6,
               runSpacing: 6,

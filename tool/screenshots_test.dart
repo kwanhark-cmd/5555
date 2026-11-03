@@ -6,8 +6,10 @@ import 'dart:ui' as ui;
 import 'package:account_vault/logic/alerts.dart';
 import 'package:account_vault/ui/app.dart';
 import 'package:account_vault/ui/screens/accounts_screens.dart';
+
 import 'package:account_vault/ui/screens/cleanup_screens.dart';
 import 'package:account_vault/ui/screens/subscriptions_screens.dart';
+import 'package:account_vault/ui/screens/settings_screens.dart';
 import 'package:account_vault/ui/screens/voice_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -97,6 +99,10 @@ void main() {
       ),
       ('05_정리도우미', const CleanupScreen()),
       ('06_음성비서', const VoiceScreen()),
+      ('10_건강보고서', const HealthScreen()),
+      ('11_설정', const SettingsScreen()),
+      ('12_지메일도우미', const GmailSettingsScreen()),
+      ('13_계정목록', const AccountsScreen()),
     ]) {
       nav.push(MaterialPageRoute(builder: (_) => w));
       await shot(tester, name);

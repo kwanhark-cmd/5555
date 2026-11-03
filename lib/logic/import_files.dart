@@ -45,8 +45,9 @@ String parseAiKeyFile(String text) {
       .toList();
   if (lines.length == 1 &&
       !lines.first.contains(' ') &&
-      lines.first.length >= 20)
+      lines.first.length >= 20) {
     return lines.first;
+  }
   throw const ImportFileException(
     '파일에서 AI 열쇠를 찾지 못했어요. 열쇠 한 줄만 들어 있는 글자 파일을 골라 주세요.',
   );
