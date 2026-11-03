@@ -9,6 +9,11 @@ on:
     tags: ['v*']
   pull_request:
   workflow_dispatch:
+    inputs:
+      release:
+        description: 'pubspec 버전으로 태그를 만들고 Releases 에 올리기'
+        type: boolean
+        default: false
 
 env:
   FLUTTER_VERSION: '3.47.9'
@@ -159,7 +164,7 @@ jobs:
 
   release:
     name: GitHub Releases 에 올리기
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.release && github.ref == 'refs/heads/main')
     needs: [test, android, windows, macos]
     runs-on: ubuntu-latest
     permissions:
@@ -194,6 +199,7 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ needs.test.outputs.version }}
+          target_commitish: ${{ github.sha }}
           name: 구독·계정 비서 v${{ needs.test.outputs.version }}
           body_path: notes.md
           files: dist/*

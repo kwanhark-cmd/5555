@@ -17,7 +17,8 @@ mkdir -p /opt/sdk && curl -sS https://storage.googleapis.com/flutter_infra_relea
 apt-get install -y libgtk-3-dev libsecret-1-dev xvfb
 export PATH=/opt/sdk/flutter/bin:$PATH
 flutter pub get && flutter test test/compat && flutter analyze && flutter test && flutter build linux
-# 새 버전 배포: pubspec·appVersion 올리기 → CHANGELOG.md 에 [버전] 추가 → git tag v버전 && git push origin v버전
+# 새 버전 배포: pubspec·appVersion 올리기 → CHANGELOG.md 에 [버전] 추가 → main 에 올림 →
+#   GitHub Actions → "검사와 빌드" → Run workflow(main, release 체크) 또는 태그 v버전 푸시
 ```
 
 ## 남은 일(선택)
