@@ -35,6 +35,12 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!app.isUnlocked) return;
     final missed = app.takeUnseenAlerts();
     if (missed.isEmpty || !mounted) return;
+    // 알림은 화면 + 음성으로(소리 설정이 켜져 있을 때). 금고가 열린 뒤에만 읽는다.
+    if (app.settings.sound) {
+      app.services.tts.speak(
+        '확인할 알림이 ${missed.length}건 있어요. ${missed.take(3).map((a) => '${a.title}, ${a.detail}').join('. ')}',
+      );
+    }
     await showDialog<void>(
       context: context,
       builder: (c) => AlertDialog(
@@ -128,6 +134,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Row(
               children: [
                 const LockAnimation(open: true, size: 56),
+                const Mascot(MascotMood.unlocked, size: 56),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Semantics(

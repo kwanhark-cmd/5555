@@ -37,7 +37,8 @@ List<AlertItem> computeAlerts(VaultData d, DateTime now) {
   final out = <AlertItem>[];
   for (final c in d.credits.where((c) => !c.done)) {
     final left = daysUntil(c.expiresAt, now);
-    if (left > 7) continue;
+    // 7일 넘게 남았거나, 만료 후 14일이 지난 항목은 알리지 않는다.
+    if (left > 7 || left < -14) continue;
     final stage = left < 0 ? 'expired' : (left <= 1 ? '1' : '7');
     final what = c.amountText.isEmpty
         ? c.kind.label

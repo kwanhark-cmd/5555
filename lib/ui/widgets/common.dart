@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../app/app_controller.dart';
@@ -34,6 +35,7 @@ extension AppX on BuildContext {
   void tapFeedback() {
     final a = appRead;
     if (a.settings.haptics) a.services.haptics.tap();
+    if (a.settings.sound) SystemSound.play(SystemSoundType.click);
   }
 }
 

@@ -184,6 +184,15 @@ void main() {
       expect(a.detail, contains('만료되었어요'));
     });
 
+    test('만료 후 14일이 지나면 더 이상 알리지 않음', () {
+      final d = VaultData(
+        credits: [
+          CreditItem(serviceName: 'a', expiresAt: DateTime(2026, 10, 1)),
+        ],
+      );
+      expect(computeAlerts(d, now), isEmpty);
+    });
+
     test('알림 예약 시각은 미래의 오전 9시만', () {
       final t = notificationTimes(sample(), now);
       expect(t.every((x) => x.isAfter(now) && x.hour == 9), isTrue);

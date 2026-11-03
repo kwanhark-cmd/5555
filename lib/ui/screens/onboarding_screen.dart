@@ -396,7 +396,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
               child: Row(
                 children: [
-                  const Mascot(MascotMood.celebrate, size: 72),
+                  const CheckBurst(size: 64),
+                  const Mascot(MascotMood.celebrate, size: 64),
                   const SizedBox(width: 12),
                   Expanded(child: Text('준비가 끝났어요!', style: t.titleLarge)),
                 ],

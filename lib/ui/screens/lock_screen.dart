@@ -274,23 +274,20 @@ class _LockScreenState extends State<LockScreen> {
               ),
             ],
             gapBig,
-            TextButton.icon(
+            BigButton(
+              label: '마스터 비밀번호를 잊었어요 (복구 코드)',
+              icon: Icons.help_outline_rounded,
+              kind: ButtonKind.caution,
+              raised: false,
               onPressed: busy ? null : _recovery,
-              icon: const Icon(Icons.help_outline_rounded, size: 28),
-              label: const Text(
-                '마스터 비밀번호를 잊었어요 (복구 코드)',
-                style: TextStyle(fontSize: 18),
-              ),
-              style: TextButton.styleFrom(minimumSize: const Size(48, 56)),
             ),
-            TextButton.icon(
+            gap,
+            BigButton(
+              label: '다른 사람 금고 새로 만들기',
+              icon: Icons.person_add_alt_1_rounded,
+              kind: ButtonKind.plain,
+              raised: false,
               onPressed: busy ? null : () => app.beginOnboarding(),
-              icon: const Icon(Icons.person_add_alt_1_rounded, size: 28),
-              label: const Text(
-                '다른 사람 금고 새로 만들기',
-                style: TextStyle(fontSize: 18),
-              ),
-              style: TextButton.styleFrom(minimumSize: const Size(48, 56)),
             ),
             gap,
             Text(
@@ -303,12 +300,14 @@ class _LockScreenState extends State<LockScreen> {
               textAlign: TextAlign.center,
               style: t.bodyMedium,
             ),
-            Center(
-              child: TextButton(
-                onPressed: () => app.updateSettings(
-                  (s) => s.textScaleLevel = (s.textScaleLevel + 1) % 3,
-                ),
-                child: const Text('글씨 크기 바꾸기', style: TextStyle(fontSize: 18)),
+            const SizedBox(height: 8),
+            BigButton(
+              label: '글씨 크기 바꾸기',
+              icon: Icons.format_size_rounded,
+              kind: ButtonKind.plain,
+              raised: false,
+              onPressed: () => app.updateSettings(
+                (s) => s.textScaleLevel = (s.textScaleLevel + 1) % 3,
               ),
             ),
           ],
