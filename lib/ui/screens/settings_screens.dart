@@ -25,6 +25,7 @@ class SettingsScreen extends StatelessWidget {
     final prefs = app.data.prefs;
     return AppPage(
       title: '설정',
+      restoreId: 'settings',
       children: [
         const UpdateCard(),
         const SizedBox(height: AppTokens.s4),
@@ -147,19 +148,7 @@ class SettingsScreen extends StatelessWidget {
           label: '문제 신고(기록 내보내기)',
           icon: Icons.bug_report_rounded,
           kind: ButtonKind.plain,
-          onPressed: () async {
-            final txt = await log.exportText(
-              appVersion: app.services.appVersion,
-            );
-            final where = await app.services.files.saveText('문제신고기록.txt', txt);
-            if (context.mounted) {
-              context.toast(
-                where == null
-                    ? '저장을 취소했어요.'
-                    : '기록을 저장했어요. 이 파일을 보내 주세요. (비밀번호·계정 정보는 들어 있지 않아요)',
-              );
-            }
-          },
+          onPressed: () => reportProblem(context),
         ),
         gap,
         FlatCard(
@@ -217,9 +206,9 @@ class SettingsScreen extends StatelessWidget {
 
 Future<String?> askMasterPassword(BuildContext context, String message) async {
   final c = TextEditingController();
-  final r = await showDialog<String>(
-    context: context,
-    builder: (ctx) => AlertDialog(
+  final r = await showSafeDialog<String>(
+    context,
+    (ctx) => AlertDialog(
       title: const Text('본인 확인'),
       content: SingleChildScrollView(
         child: Column(
@@ -524,6 +513,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
     final used = prefs.aiUsageMonth == m ? prefs.aiUsageWon : 0;
     return AppPage(
       title: 'AI 연결',
+      restoreId: 'ai',
       children: [
         Text(
           '결제 메일을 더 잘 알아보도록 Claude AI를 연결할 수 있어요. '
@@ -635,10 +625,18 @@ class _GmailSettingsScreenState extends State<GmailSettingsScreen> {
       });
       log.info('지메일 연결됨');
       if (mounted) context.toast('지메일을 연결했어요. 결제 메일 읽기만 해요.');
-    } on GmailException catch (e) {
-      if (mounted) context.toast(e.message);
-    } catch (_) {
-      if (mounted) context.toast('연결하지 못했어요. 잠시 뒤 다시 해 주세요.');
+    } catch (e) {
+      if (mounted) {
+        setState(() => busy = false);
+        await showErrorDialog(
+          context,
+          stage: FailStage.gmail,
+          message: e is GmailException
+              ? e.message
+              : '연결하지 못했어요. 잠시 뒤 다시 해 주세요.',
+          onRetry: _connect,
+        );
+      }
     } finally {
       if (mounted) setState(() => busy = false);
     }
@@ -651,6 +649,7 @@ class _GmailSettingsScreenState extends State<GmailSettingsScreen> {
     final connected = app.data.prefs.gmailConnected;
     return AppPage(
       title: '지메일 연결',
+      restoreId: 'gmail',
       children: [
         StatusBadge(
           connected ? StatusKind.safe : StatusKind.progress,
@@ -723,7 +722,15 @@ class _BackupScreenState extends State<BackupScreen> {
       }
     } catch (e) {
       log.error('백업 실패', e);
-      if (mounted) context.toast('백업하지 못했어요.');
+      if (mounted) {
+        setState(() => busy = false);
+        await showErrorDialog(
+          context,
+          stage: FailStage.backup,
+          message: '백업 파일을 만들지 못했어요. 저장 공간을 확인해 주세요. 금고는 그대로예요.',
+          onRetry: _export,
+        );
+      }
     } finally {
       if (mounted) setState(() => busy = false);
     }
@@ -751,7 +758,15 @@ class _BackupScreenState extends State<BackupScreen> {
         pw,
         app.services.scratchDir,
       )) {
-        if (mounted) context.toast('백업의 마스터 비밀번호가 맞지 않아요.');
+        if (mounted) {
+          setState(() => busy = false);
+          await showErrorDialog(
+            context,
+            stage: FailStage.restore,
+            message: '백업의 마스터 비밀번호가 맞지 않아요. 백업을 만들 때의 비밀번호를 넣어 주세요.',
+            onRetry: _restore,
+          );
+        }
         return;
       }
       if (!mounted) return;
@@ -768,11 +783,20 @@ class _BackupScreenState extends State<BackupScreen> {
       await app.reloadProfiles();
       await app.lock(reason: 'restore');
       if (auto != null) log.info('복원 전 자동 백업 저장됨');
-    } on BackupException catch (e) {
-      if (mounted) context.toast(e.message);
     } catch (e) {
-      log.error('복원 실패', e);
-      if (mounted) context.toast('복원하지 못했어요. 지금 데이터는 그대로예요.');
+      if (e is! BackupException) log.error('복원 실패', e);
+      if (mounted) {
+        setState(() => busy = false);
+        await showErrorDialog(
+          context,
+          stage: FailStage.restore,
+          message: e is BackupException
+              ? '${e.message}\n지금 금고는 그대로예요.'
+              : '복원하지 못했어요. 지금 금고는 그대로예요.',
+          nextActionLabel: '다른 파일 고르기',
+          onNextAction: _restore,
+        );
+      }
     } finally {
       if (mounted) setState(() => busy = false);
     }
@@ -783,6 +807,7 @@ class _BackupScreenState extends State<BackupScreen> {
     final t = Theme.of(context).textTheme;
     return AppPage(
       title: '백업',
+      restoreId: 'backup',
       children: [
         const Center(child: Emoji3D('package', size: 96)),
         gap,

@@ -35,6 +35,7 @@ class CleanupScreen extends StatelessWidget {
 
     return AppPage(
       title: '정리 도우미',
+      restoreId: 'cleanup',
       children: [
         FlatCard(
           status: health.score >= 80 ? StatusKind.safe : StatusKind.caution,
@@ -182,7 +183,14 @@ class _HealthScreenState extends State<HealthScreen> {
       checking = false;
       breached = failed ? null : out;
     });
-    if (failed) context.toast('인터넷 연결을 확인해 주세요.');
+    if (failed) {
+      await showErrorDialog(
+        context,
+        stage: FailStage.breach,
+        message: '유출 확인 서버에 연결하지 못했어요. 인터넷 연결을 확인해 주세요.',
+        onRetry: _checkBreach,
+      );
+    }
   }
 
   @override
@@ -229,6 +237,7 @@ class _HealthScreenState extends State<HealthScreen> {
 
     return AppPage(
       title: '금고 건강 보고서',
+      restoreId: 'health',
       children: [
         FlatCard(
           status: r.score >= 80

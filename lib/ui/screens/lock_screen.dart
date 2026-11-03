@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/crypto/vault_crypto.dart';
+import '../../core/log/app_logger.dart';
 import '../../core/vault/vault.dart';
 import '../../data/repository.dart';
 import '../theme/tokens.dart';
@@ -97,6 +98,8 @@ class _LockScreenState extends State<LockScreen> {
         });
         _startWait(remaining);
       case UnlockUnavailable(:final message):
+        // 생체 인증이 안 되면 언제나 마스터 비밀번호로(안전하게 실패).
+        log.info('실패[생체 인증]: $message → 마스터 비밀번호로 전환');
         setState(() {
           messageKind = StatusKind.progress;
           this.message = '$message. 마스터 비밀번호로 열어 주세요.';
@@ -106,6 +109,90 @@ class _LockScreenState extends State<LockScreen> {
           messageKind = StatusKind.danger;
           this.message = message;
         });
+        showErrorDialog(
+          context,
+          stage: FailStage.unlock,
+          message: '$message\n백업 파일이 있으면 지금 복원할 수 있어요.',
+          nextActionLabel: '백업 파일로 복원',
+          onNextAction: _restoreFromBackup,
+        );
+    }
+  }
+
+  /// 금고 파일이 손상되어 열 수 없을 때: 잠금 화면에서 바로 백업으로 복원.
+  Future<void> _restoreFromBackup() async {
+    final app = context.appRead;
+    final text = await app.services.files.openText(
+      extensions: ['vaultbackup', 'json'],
+    );
+    if (text == null || !mounted) return;
+    try {
+      final info = await app.backups.inspect(text);
+      if (!mounted) return;
+      final c = TextEditingController();
+      final pw = await showSafeDialog<String>(
+        context,
+        (ctx) => AlertDialog(
+          title: const Text('백업의 마스터 비밀번호'),
+          content: BigField(
+            controller: c,
+            label: '마스터 비밀번호',
+            obscure: true,
+            autofocus: true,
+          ),
+          actions: [
+            BigButton(
+              label: '취소',
+              kind: ButtonKind.plain,
+              expand: false,
+              raised: false,
+              onPressed: () => Navigator.pop(ctx),
+            ),
+            BigButton(
+              label: '확인',
+              expand: false,
+              raised: false,
+              onPressed: () => Navigator.pop(ctx, c.text),
+            ),
+          ],
+        ),
+      );
+      c.dispose();
+      if (pw == null || !mounted) return;
+      if (!await app.backups.verifyPassword(
+        info,
+        pw,
+        app.services.scratchDir,
+      )) {
+        if (mounted) {
+          await showErrorDialog(
+            context,
+            stage: FailStage.restore,
+            message: '백업의 마스터 비밀번호가 맞지 않아요.',
+            onRetry: _restoreFromBackup,
+          );
+        }
+        return;
+      }
+      await app.backups.restore(info, app.services.appVersion);
+      await app.reloadProfiles();
+      log.info('잠금 화면에서 백업 복원 완료');
+      if (mounted) {
+        setState(() {
+          messageKind = StatusKind.safe;
+          message = '복원했어요. 백업의 마스터 비밀번호로 열어 주세요.';
+        });
+      }
+    } on BackupException catch (e) {
+      if (mounted) {
+        await showErrorDialog(
+          context,
+          stage: FailStage.restore,
+          message: e.message,
+          nextActionLabel: '다른 파일 고르기',
+          onNextAction: _restoreFromBackup,
+        );
+      }
     }
   }
 
@@ -141,9 +228,9 @@ class _LockScreenState extends State<LockScreen> {
     final p = selected ?? context.appRead.defaultProfile;
     if (p == null) return;
     final c = TextEditingController();
-    final code = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
+    final code = await showSafeDialog<String>(
+      context,
+      (ctx) => AlertDialog(
         title: const Text('복구 코드로 열기'),
         content: SingleChildScrollView(
           child: Column(

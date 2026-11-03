@@ -31,6 +31,7 @@ class CreditsScreen extends StatelessWidget {
     final done = d.credits.where((c) => c.done).toList();
     return AppPage(
       title: '만료 알림',
+      restoreId: 'credits',
       children: [
         const TipBubble(
           id: 'credits',

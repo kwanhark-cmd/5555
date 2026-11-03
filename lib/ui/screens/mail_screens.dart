@@ -105,7 +105,15 @@ class _MailImportScreenState extends State<MailImportScreen> {
     } on AiLimitExceeded {
       setState(() => note = '이번 달 AI 사용 한도에 닿았어요. 설정에서 한도를 바꾸거나 직접 입력해 주세요.');
     } on AiRequestFailed catch (e) {
-      setState(() => note = '${e.message} 직접 입력도 할 수 있어요.');
+      if (mounted) setState(() => note = '직접 입력도 할 수 있어요.');
+      if (mounted) {
+        await showErrorDialog(
+          context,
+          stage: FailStage.ai,
+          message: '${e.message}\n직접 입력도 할 수 있어요.',
+          onRetry: () => _analyzePasted(forceAi: forceAi),
+        );
+      }
     } finally {
       if (mounted) setState(() => busy = false);
     }
@@ -137,10 +145,20 @@ class _MailImportScreenState extends State<MailImportScreen> {
             ? '최근 60일 결제·크레딧 메일에서 찾은 것이 없어요.'
             : '메일 ${msgs.length}통 중 ${found.length}건을 찾았어요. 확인 후 추가해 주세요.';
       });
-    } on GmailException catch (e) {
-      setState(() => note = '${e.message} 직접 입력이나 메일 붙여넣기는 계속 쓸 수 있어요.');
-    } catch (_) {
-      setState(() => note = '지메일을 읽지 못했어요. 직접 입력해 주세요.');
+    } catch (e) {
+      final msg = e is GmailException ? e.message : '지메일을 읽지 못했어요.';
+      if (mounted) {
+        setState(() {
+          busy = false;
+          note = '직접 입력이나 메일 붙여넣기는 계속 쓸 수 있어요.';
+        });
+        await showErrorDialog(
+          context,
+          stage: FailStage.gmail,
+          message: '$msg\n직접 입력이나 메일 붙여넣기는 계속 쓸 수 있어요.',
+          onRetry: _fromGmail,
+        );
+      }
     } finally {
       if (mounted) setState(() => busy = false);
     }
@@ -188,6 +206,7 @@ class _MailImportScreenState extends State<MailImportScreen> {
     final prefs = app.data.prefs;
     return AppPage(
       title: '메일로 채우기',
+      restoreId: 'mail',
       children: [
         Text(
           '결제 영수증이나 크레딧 안내 메일 내용을 복사해 아래에 붙여 넣으세요. 메일 내용은 저장하지 않아요.',

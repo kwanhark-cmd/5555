@@ -103,6 +103,7 @@ class _VoiceScreenState extends State<VoiceScreen> {
     final t = Theme.of(context).textTheme;
     return AppPage(
       title: '음성 비서',
+      restoreId: 'voice',
       children: [
         const TipBubble(
           id: 'voice',

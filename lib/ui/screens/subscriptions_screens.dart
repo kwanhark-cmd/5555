@@ -43,6 +43,7 @@ class SubscriptionsScreen extends StatelessWidget {
 
     return AppPage(
       title: '구독 결제',
+      restoreId: 'subs',
       bottom: const ClipboardBanner(),
       children: [
         const TipBubble(
@@ -301,6 +302,7 @@ class SubscriptionDetailScreen extends StatelessWidget {
 
     return AppPage(
       title: s.serviceName,
+      restoreId: 'sub:$id',
       children: [
         FlatCard(
           status: subStatus(s, now) == StatusKind.progress

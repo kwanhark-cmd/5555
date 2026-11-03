@@ -20,16 +20,16 @@ class VaultApp extends StatefulWidget {
 }
 
 class _VaultAppState extends State<VaultApp> {
-  final _navKey = GlobalKey<NavigatorState>();
   StreamSubscription<void>? _lockSub;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(widget.controller);
+    rootNavigatorKey = widget.controller.navigatorKey;
     // 잠기면 열려 있던 화면을 모두 닫고 잠금 화면으로.
     _lockSub = widget.controller.lockEvents.stream.listen((_) {
-      _navKey.currentState?.popUntil((r) => r.isFirst);
+      widget.controller.navigatorKey.currentState?.popUntil((r) => r.isFirst);
     });
   }
 
@@ -53,7 +53,8 @@ class _VaultAppState extends State<VaultApp> {
             palette: palette,
             reduceMotion: app.settings.reduceMotion,
             child: MaterialApp(
-              navigatorKey: _navKey,
+              navigatorKey: app.navigatorKey,
+              navigatorObservers: [app.navObserver],
               debugShowCheckedModeBanner: false,
               title: '로그인 계정과 구독 결제 관리 비서',
               theme: buildTheme(palette),

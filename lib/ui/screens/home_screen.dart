@@ -8,6 +8,7 @@ import '../widgets/common.dart';
 import 'accounts_screens.dart';
 import 'cleanup_screens.dart';
 import 'credits_screens.dart';
+import 'restore_routes.dart';
 import 'settings_screens.dart';
 import 'subscriptions_screens.dart';
 import 'voice_screen.dart';
@@ -33,6 +34,9 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _showMissed() async {
     final app = context.appRead;
     if (!app.isUnlocked) return;
+    // 잠기기 전에 보던 화면으로 돌아간다(같은 사용자일 때만).
+    final resume = app.takeResume();
+    if (resume.isNotEmpty) restoreScreens(Navigator.of(context), resume);
     final missed = app.takeUnseenAlerts();
     if (missed.isEmpty || !mounted) return;
     // 알림은 화면 + 음성으로(소리 설정이 켜져 있을 때). 금고가 열린 뒤에만 읽는다.
@@ -41,9 +45,9 @@ class _HomeScreenState extends State<HomeScreen> {
         '확인할 알림이 ${missed.length}건 있어요. ${missed.take(3).map((a) => '${a.title}, ${a.detail}').join('. ')}',
       );
     }
-    await showDialog<void>(
-      context: context,
-      builder: (c) => AlertDialog(
+    await showSafeDialog<void>(
+      context,
+      (c) => AlertDialog(
         title: Row(
           children: [
             const Emoji3D('bell', size: 40),

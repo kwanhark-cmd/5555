@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../app/app_controller.dart';
+import '../../core/log/app_logger.dart';
 import '../theme/tokens.dart';
 
 /// 화면 어디서나 앱 상태를 꺼내 쓰기 위한 창구.
@@ -26,9 +27,12 @@ extension AppX on BuildContext {
   AppController get app => AppScope.of(this);
   AppController get appRead => AppScope.read(this);
 
+  /// 짧은 안내. 화면이 사라졌으면 앱 맨 위에 띄우고, 그것도 없으면 조용히 넘어간다.
   void toast(String message) {
-    ScaffoldMessenger.of(this)
-      ..hideCurrentSnackBar()
+    final ctx = dialogContext(this);
+    if (ctx == null) return;
+    ScaffoldMessenger.maybeOf(ctx)
+      ?..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 
@@ -396,7 +400,7 @@ class FlatCard extends StatelessWidget {
 }
 
 /// 공통 화면 틀: 큰 제목, 같은 자리의 "뒤로"·"홈" 버튼.
-class AppPage extends StatelessWidget {
+class AppPage extends StatefulWidget {
   const AppPage({
     super.key,
     required this.title,
@@ -405,7 +409,11 @@ class AppPage extends StatelessWidget {
     this.floating,
     this.bottom,
     this.padding = const EdgeInsets.fromLTRB(16, 8, 16, 32),
+    this.restoreId,
   });
+
+  /// 잠긴 뒤 다시 열 때 이 화면을 되살리는 이름(입력 화면은 null).
+  final String? restoreId;
 
   final String title;
   final List<Widget> children;
@@ -415,8 +423,48 @@ class AppPage extends StatelessWidget {
   final EdgeInsets padding;
 
   @override
+  State<AppPage> createState() => _AppPageState();
+}
+
+class _AppPageState extends State<AppPage> {
+  ScrollController? _scroll;
+
+  String get _key => widget.restoreId ?? 'page:${widget.title}';
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final app = context.appRead;
+    final route = ModalRoute.of(context);
+    if (route != null && widget.restoreId != null) {
+      app.registerRoute(route, widget.restoreId!);
+    }
+    if (_scroll == null) {
+      // 보던 위치에서 시작하고, 움직일 때마다 위치를 기억한다(갱신·잠금 후에도 유지).
+      _scroll = ScrollController(
+        initialScrollOffset: app.scrollOffsets[_key] ?? 0,
+      );
+      _scroll!.addListener(() {
+        if (_scroll!.hasClients) app.scrollOffsets[_key] = _scroll!.offset;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _scroll?.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final p = context.palette;
+    final title = widget.title;
+    final children = widget.children;
+    final showHome = widget.showHome;
+    final floating = widget.floating;
+    final bottom = widget.bottom;
+    final padding = widget.padding;
     final canPop = Navigator.of(context).canPop();
     return Scaffold(
       appBar: AppBar(
@@ -464,6 +512,8 @@ class AppPage extends StatelessWidget {
       body: SafeArea(
         top: false,
         child: ListView(
+          key: PageStorageKey(_key),
+          controller: _scroll,
           padding: padding,
           children: [
             Semantics(
@@ -535,6 +585,120 @@ class EmptyState extends StatelessWidget {
 }
 
 /// 위험 동작 2단계 확인. 두 번 모두 "예"를 눌러야 true.
+/// 실패 단계(로그·문제 신고에 남김).
+enum FailStage {
+  unlock('잠금 해제'),
+  biometric('생체 인증'),
+  backup('백업'),
+  restore('복원'),
+  gmail('지메일'),
+  ai('AI'),
+  update('업데이트'),
+  breach('유출 확인'),
+  file('파일');
+
+  const FailStage(this.label);
+  final String label;
+}
+
+/// 실패 창: 원인 기록(비밀 정보 없이) + "다시 시도" + "문제 신고"(금고가 열렸을 때만).
+/// 다시 시도는 창이 완전히 닫힌 뒤 실행해, 사라진 화면을 쓰지 않는다.
+Future<void> showErrorDialog(
+  BuildContext context, {
+  required FailStage stage,
+  required String message,
+  Future<void> Function()? onRetry,
+  String? nextActionLabel,
+  VoidCallback? onNextAction,
+}) async {
+  log.warn('실패[${stage.label}]: $message');
+  final ctx = dialogContext(context);
+  if (ctx == null) return;
+  final app = AppScope.read(ctx);
+  final canReport = app.isUnlocked;
+  final choice = await showSafeDialog<String>(
+    ctx,
+    (c) => AlertDialog(
+      title: Row(
+        children: [
+          const Emoji3D('warning', size: 40),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '${stage.label}에 실패했어요',
+              style: Theme.of(c).textTheme.titleLarge,
+            ),
+          ),
+        ],
+      ),
+      content: SingleChildScrollView(
+        child: Text(message, style: Theme.of(c).textTheme.bodyLarge),
+      ),
+      actionsOverflowDirection: VerticalDirection.up,
+      actionsOverflowButtonSpacing: 8,
+      actions: [
+        if (canReport)
+          BigButton(
+            label: '문제 신고',
+            kind: ButtonKind.plain,
+            expand: false,
+            raised: false,
+            onPressed: () => Navigator.pop(c, 'report'),
+          ),
+        BigButton(
+          label: '닫기',
+          kind: ButtonKind.plain,
+          expand: false,
+          raised: false,
+          onPressed: () => Navigator.pop(c, 'close'),
+        ),
+        if (nextActionLabel != null)
+          BigButton(
+            label: nextActionLabel,
+            kind: ButtonKind.accent,
+            expand: false,
+            raised: false,
+            onPressed: () => Navigator.pop(c, 'next'),
+          ),
+        if (onRetry != null)
+          BigButton(
+            label: '다시 시도',
+            expand: false,
+            raised: false,
+            onPressed: () => Navigator.pop(c, 'retry'),
+          ),
+      ],
+    ),
+  );
+  switch (choice) {
+    case 'retry':
+      await onRetry?.call();
+    case 'next':
+      onNextAction?.call();
+    case 'report':
+      final rc = rootNavigatorKey?.currentContext;
+      if (rc != null && rc.mounted) await reportProblem(rc);
+    default:
+      break;
+  }
+}
+
+/// 문제 신고: 기록을 파일로 저장(비밀번호·계정·카드 정보 없음). 금고가 열렸을 때만.
+Future<void> reportProblem(BuildContext context) async {
+  final app = AppScope.read(context);
+  if (!app.isUnlocked) return;
+  final txt = await log.exportText(appVersion: app.services.appVersion);
+  final where = await app.services.files.saveText('문제신고기록.txt', txt);
+  final ctx = dialogContext(context);
+  if (ctx != null) {
+    ctx.toast(
+      where == null
+          ? '저장을 취소했어요.'
+          : '기록을 저장했어요. 이 파일을 보내 주세요. (비밀번호·계정 정보는 들어 있지 않아요)',
+    );
+  }
+}
+
 Future<bool> confirmTwice(
   BuildContext context, {
   required String title,
@@ -558,6 +722,27 @@ Future<bool> confirmTwice(
   );
 }
 
+/// 앱 전체의 화면 길잡이(VaultApp 이 연결). 대화상자를 띄울 화면이 이미 사라졌을 때 대신 쓴다.
+GlobalKey<NavigatorState>? rootNavigatorKey;
+
+/// 대화상자를 띄워도 안전한 context. 원래 화면이 사라졌으면 앱 맨 위 길잡이를 쓴다.
+/// (1번 앱 실제 오류: 닫힌 화면의 context 로 showDialog → Null check 오류로 앱 종료)
+BuildContext? dialogContext(BuildContext context) {
+  if (context.mounted) return context;
+  final root = rootNavigatorKey?.currentContext;
+  return (root != null && root.mounted) ? root : null;
+}
+
+/// 모든 대화상자는 이 함수로 띄운다(사라진 화면 방지).
+Future<T?> showSafeDialog<T>(
+  BuildContext context,
+  WidgetBuilder builder,
+) async {
+  final ctx = dialogContext(context);
+  if (ctx == null) return null;
+  return showDialog<T>(context: ctx, useRootNavigator: true, builder: builder);
+}
+
 Future<bool> confirmDialog(
   BuildContext context, {
   required String title,
@@ -566,9 +751,9 @@ Future<bool> confirmDialog(
   String cancelLabel = '아니요',
   bool danger = false,
 }) async {
-  final r = await showDialog<bool>(
-    context: context,
-    builder: (c) => AlertDialog(
+  final r = await showSafeDialog<bool>(
+    context,
+    (c) => AlertDialog(
       title: Text(title, style: Theme.of(c).textTheme.titleLarge),
       content: SingleChildScrollView(
         child: Text(message, style: Theme.of(c).textTheme.bodyLarge),

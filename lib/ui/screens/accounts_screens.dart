@@ -77,6 +77,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
 
     return AppPage(
       title: '계정·비밀번호',
+      restoreId: 'accounts',
       bottom: const ClipboardBanner(),
       children: [
         const TipBubble(
@@ -240,6 +241,7 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
 
     return AppPage(
       title: a.serviceName,
+      restoreId: 'acc:${widget.id}',
       bottom: const ClipboardBanner(),
       children: [
         FlatCard(
@@ -553,6 +555,7 @@ class _GeneratorScreenState extends State<GeneratorScreen> {
     final s = PasswordTools.strength(value);
     return AppPage(
       title: '비밀번호 만들기',
+      restoreId: 'generator',
       bottom: const ClipboardBanner(),
       children: [
         Container(

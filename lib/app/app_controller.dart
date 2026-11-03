@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 
 import '../core/clock.dart';
@@ -40,6 +40,26 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   VaultSession? _session;
   VaultData? _data;
   ProfileInfo? currentProfile;
+
+  // ───────── 화면·위치 기억(메모리에만, 비밀 정보 없음) ─────────
+  /// 앱 전체에서 하나뿐인 화면 길잡이. 사라진 화면 대신 이것으로 대화상자를 띄운다.
+  final navigatorKey = GlobalKey<NavigatorState>();
+  final navObserver = NavStackObserver();
+  final _routeIds = Expando<String>('restoreId');
+
+  /// 화면 이름 → 목록 스크롤 위치.
+  final scrollOffsets = <String, double>{};
+  List<String> _resume = [];
+  String? _resumeProfile;
+
+  void registerRoute(Route<dynamic> r, String id) => _routeIds[r] = id;
+
+  /// 잠긴 뒤 다시 열었을 때 열어 줄 화면들(같은 사용자일 때만).
+  List<String> takeResume() {
+    final out = _resumeProfile == currentProfile?.id ? _resume : <String>[];
+    _resume = [];
+    return out;
+  }
 
   /// 잠금이 일어날 때 화면을 첫 화면으로 되돌리기 위한 신호.
   final lockEvents = StreamController<void>.broadcast();
@@ -179,6 +199,10 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> _open(VaultSession s, ProfileInfo info) async {
+    if (_resumeProfile != null && _resumeProfile != info.id) {
+      _resume = [];
+      scrollOffsets.clear();
+    }
     final VaultData d;
     try {
       d = loadVaultData(s.data);
@@ -204,6 +228,17 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> lock({String reason = 'manual'}) async {
     if (_session == null) return;
     _autoLockTimer?.cancel();
+    // 보던 화면 순서를 기억(초기화·복원으로 잠근 경우는 기억하지 않음).
+    if (reason == 'reset' || reason == 'restore') {
+      _resume = [];
+      scrollOffsets.clear();
+    } else {
+      _resume = [
+        for (final r in navObserver.stack)
+          if (_routeIds[r] != null) _routeIds[r]!,
+      ];
+      _resumeProfile = currentProfile?.id;
+    }
     // 키와 데이터는 기다리지 않고 즉시 버린다(안전하게 실패).
     _session?.lock();
     _session = null;
@@ -376,5 +411,32 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     _clipTimer?.cancel();
     lockEvents.close();
     super.dispose();
+  }
+}
+
+/// 지금 열려 있는 화면 순서를 기록한다.
+class NavStackObserver extends NavigatorObserver {
+  final stack = <Route<dynamic>>[];
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      stack.add(route);
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      stack.remove(route);
+
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      stack.remove(route);
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
+    final i = oldRoute == null ? -1 : stack.indexOf(oldRoute);
+    if (i >= 0 && newRoute != null) {
+      stack[i] = newRoute;
+    } else if (newRoute != null) {
+      stack.add(newRoute);
+    }
   }
 }
