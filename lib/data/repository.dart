@@ -41,18 +41,47 @@ class ProfileRepository {
   Directory get autoBackupDir => Directory(p.join(root.path, 'auto_backups'));
 
   Future<List<ProfileInfo>> list() async {
+    var list = <ProfileInfo>[];
     try {
-      if (!_file.existsSync()) return [];
-      final raw = jsonDecode(await _file.readAsString());
-      final list = (raw as List)
-          .whereType<Map>()
-          .map((m) => ProfileInfo.fromJson(Map<String, Object?>.from(m)))
-          .toList();
-      // 금고 파일이 없는 항목은 숨긴다(만들다 중단된 경우).
-      return list.where((pi) => storeFor(pi.id).exists).toList();
+      if (_file.existsSync()) {
+        final raw = jsonDecode(await _file.readAsString());
+        list = (raw as List)
+            .whereType<Map>()
+            .map((m) => ProfileInfo.fromJson(Map<String, Object?>.from(m)))
+            .toList();
+      }
     } catch (_) {
-      return [];
+      list = [];
     }
+    // 금고 파일이 없는 항목은 숨긴다(만들다 중단된 경우).
+    list = list.where((pi) => storeFor(pi.id).exists).toList();
+    // 목록 파일이 지워지거나 손상돼도 금고 폴더가 남아 있으면 다시 찾아 준다.
+    final found = await _scanVaultFolders(list.map((e) => e.id).toSet());
+    if (found.isNotEmpty) {
+      list.addAll(found);
+      try {
+        await _save(list);
+      } catch (_) {}
+    }
+    return list;
+  }
+
+  Future<List<ProfileInfo>> _scanVaultFolders(Set<String> known) async {
+    final out = <ProfileInfo>[];
+    final dir = Directory(p.join(root.path, 'profiles'));
+    if (!dir.existsSync()) return out;
+    for (final e in dir.listSync().whereType<Directory>()) {
+      final id = p.basename(e.path);
+      if (known.contains(id) || !storeFor(id).exists) continue;
+      try {
+        final h = await storeFor(id).readHeader();
+        if (h.profileId != id) continue;
+        out.add(
+          ProfileInfo(id, '사용자 ${out.length + known.length + 1}', h.createdAt),
+        );
+      } catch (_) {}
+    }
+    return out;
   }
 
   Future<void> _save(List<ProfileInfo> list) =>

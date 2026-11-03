@@ -349,6 +349,22 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  /// 업데이트 전 자동 암호화 백업(앱 자료 폴더의 auto_backups). 저장 경로를 돌려준다.
+  Future<String> backupBeforeUpdate(String newVersion) async {
+    final info = currentProfile;
+    if (info == null) throw StateError('잠긴 상태');
+    final json = await backups.export(info.id, info.name, services.appVersion);
+    final dir = profiles.autoBackupDir;
+    await dir.create(recursive: true);
+    final stamp = now().toIso8601String().replaceAll(RegExp(r'[:.]'), '-');
+    final f = File(
+      p.join(dir.path, 'before-update-$newVersion-$stamp.vaultbackup'),
+    );
+    await writeFileAtomic(f, json);
+    log.info('업데이트 전 자동 백업 저장');
+    return f.path;
+  }
+
   Future<void> reloadProfiles() async {
     profileList = await profiles.list();
     notifyListeners();

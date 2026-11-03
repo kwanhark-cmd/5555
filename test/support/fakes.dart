@@ -107,6 +107,21 @@ class FakeHaptics implements HapticPort {
   void tap() {}
 }
 
+class FakeInstaller implements InstallerPort {
+  final installed = <String>[];
+  Directory? dir;
+  @override
+  String get os => 'android';
+  @override
+  Future<Directory> downloadDir() async =>
+      dir ??= Directory.systemTemp.createTempSync('dl');
+  @override
+  Future<String> install(File file) async {
+    installed.add(file.path);
+    return '설치 화면을 열었어요';
+  }
+}
+
 class TestRig {
   TestRig._(this.dir, this.services, this.controller);
   final Directory dir;
@@ -147,6 +162,7 @@ class TestRig {
       launcher: FakeLauncher(),
       secureScreen: FakeSecureScreen(),
       haptics: FakeHaptics(),
+      installer: FakeInstaller(),
       appVersion: '1.0.0-test',
     );
     final c = AppController(

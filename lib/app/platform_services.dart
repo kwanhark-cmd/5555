@@ -21,7 +21,7 @@ import '../core/log/app_logger.dart';
 import '../core/vault/vault.dart';
 import 'services.dart';
 
-const appVersion = '1.0.0';
+const appVersion = '1.1.0';
 
 Future<AppServices> createPlatformServices() async {
   final support = await getApplicationSupportDirectory();
@@ -42,6 +42,7 @@ Future<AppServices> createPlatformServices() async {
     launcher: UrlLauncherPort(),
     secureScreen: AndroidSecureScreen(),
     haptics: SystemHaptics(),
+    installer: PlatformInstaller(),
     appVersion: appVersion,
   );
 }
@@ -403,5 +404,54 @@ class SystemHaptics implements HapticPort {
   void success() {
     if (kIsWeb) return;
     HapticFeedback.mediumImpact();
+  }
+}
+
+class PlatformInstaller implements InstallerPort {
+  static const _ch = MethodChannel('account_vault/installer');
+
+  @override
+  String get os => Platform.operatingSystem;
+
+  @override
+  Future<Directory> downloadDir() async {
+    Directory base;
+    if (Platform.isAndroid || Platform.isIOS) {
+      base = Directory(p.join((await getTemporaryDirectory()).path, 'updates'));
+    } else {
+      base = await getDownloadsDirectory() ?? await getTemporaryDirectory();
+    }
+    await base.create(recursive: true);
+    return base;
+  }
+
+  @override
+  Future<String> install(File file) async {
+    try {
+      if (Platform.isAndroid) {
+        final r = await _ch.invokeMethod<String>('installApk', file.path);
+        return r == 'need_permission'
+            ? '"이 출처 허용"을 켠 뒤 다시 "설치"를 눌러 주세요.'
+            : '설치 화면에서 "업데이트"를 눌러 주세요. 금고는 그대로 남아요.';
+      }
+      if (Platform.isWindows) {
+        await Process.start(
+          file.path,
+          const [],
+          mode: ProcessStartMode.detached,
+        );
+        // 설치 프로그램이 앱을 덮어쓸 수 있도록 앱을 닫는다(금고 파일은 %APPDATA% 에 그대로).
+        Future.delayed(const Duration(seconds: 2), () => exit(0));
+        return '설치 프로그램을 열었어요. 앱이 잠시 후 닫혀요.';
+      }
+      // 맥·리눅스: 보안 상자(샌드박스) 때문에 앱이 스스로를 바꿀 수 없어 내려받은 폴더를 연다.
+      await launchUrl(Uri.directory(file.parent.path));
+      return Platform.isMacOS
+          ? '내려받은 폴더를 열었어요. 압축을 풀고 새 앱을 "응용 프로그램" 폴더로 끌어 기존 앱을 바꿔 주세요.'
+          : '내려받은 폴더를 열었어요. 압축을 풀어 기존 앱 폴더를 바꿔 주세요.';
+    } catch (e) {
+      log.warn('설치 시작 실패: ${e.runtimeType}');
+      return '설치를 시작하지 못했어요. 내려받은 파일: ${file.path}';
+    }
   }
 }

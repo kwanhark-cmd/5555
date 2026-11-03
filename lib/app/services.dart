@@ -55,6 +55,18 @@ abstract class SecureScreenPort {
   Future<void> setSecure(bool on);
 }
 
+/// 새 버전 설치 파일을 넘겨 설치를 시작한다(사용자가 마지막 확인을 한다).
+abstract class InstallerPort {
+  /// 이 기기 종류: android / windows / macos / linux
+  String get os;
+
+  /// 내려받을 폴더.
+  Future<Directory> downloadDir();
+
+  /// 설치 시작. 사용자에게 보여 줄 안내 문구를 돌려준다.
+  Future<String> install(File file);
+}
+
 abstract class HapticPort {
   void tap();
   void success();
@@ -73,6 +85,7 @@ class AppServices {
     required this.launcher,
     required this.secureScreen,
     required this.haptics,
+    required this.installer,
     required this.appVersion,
     required this.scratchDir,
   });
@@ -89,5 +102,6 @@ class AppServices {
   final LauncherPort launcher;
   final SecureScreenPort secureScreen;
   final HapticPort haptics;
+  final InstallerPort installer;
   final String appVersion;
 }

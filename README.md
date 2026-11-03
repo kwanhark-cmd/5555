@@ -21,17 +21,29 @@ SNS 계정(페이스북, X, 스레드, 카카오톡 …)과 비밀번호를 **�
 
 ## 1. 설치하기
 
-GitHub 저장소의 **Actions → "검사와 빌드" → 가장 최근 성공한 실행 → 아래쪽 Artifacts** 에서 내려받습니다.
+GitHub 저장소 오른쪽의 **Releases → 가장 최신 버전**에서 기기에 맞는 파일을 내려받습니다.
 
-| 기기 | 내려받을 파일 | 설치 방법 |
+| 기기 | 파일 | 설치 방법 |
 |---|---|---|
-| 안드로이드 폰 | `android-apk` | 압축을 풀고 `app-release.apk` 를 폰에 옮겨 누르기 → "출처를 알 수 없는 앱 허용" |
-| 윈도우 PC | `windows-app` | 압축을 풀고 `account_vault.exe` 실행 |
-| 맥 | `macos-app` | 압축을 풀고 앱을 마우스 오른쪽 클릭 → "열기" (서명 전이라 처음 한 번 필요) |
-| 리눅스 | `linux-app` | 압축을 풀고 `account_vault` 실행 |
+| 안드로이드 폰 | `account_vault-버전-android.apk` | 폰에서 파일을 누르기 → "출처를 알 수 없는 앱 허용" |
+| 윈도우 PC | `account_vault-버전-windows-setup.exe` | 실행 → 안내대로 설치 |
+| 맥 | `account_vault-버전-macos.zip` | 압축을 풀고 앱을 "응용 프로그램" 폴더로 → 처음 한 번은 오른쪽 클릭 → "열기" |
+| 리눅스 | `account_vault-버전-linux.tar.gz` | 압축을 풀고 `account_vault` 실행 |
 
-> 아이폰은 준비 중입니다.
-> 지금 파일은 **시험용**입니다(앱 서명 전). 판매·배포 전 할 일은 `docs/배포준비.md` 를 보세요.
+> 아이폰은 준비 중입니다. 지금 파일은 앱 서명 전 **시험용**입니다(`docs/배포준비.md`).
+
+## 1-1. 새 버전으로 바꾸기 (업데이트)
+
+- **설치하기 전에 복구 코드가 종이에 적혀 있는지 꼭 확인하세요.**
+- **설치 = 덮어쓰기**입니다. 금고(구독·계정·비밀번호)는 앱 파일이 아니라 사용자 자료 폴더
+  (맥 `~/Library/Application Support`, 윈도우 `%APPDATA%`, 안드로이드 앱 자료)에 있어 **그대로 남고, 같은 마스터 비밀번호로 열립니다.**
+- 가장 쉬운 방법: 앱을 열고 **설정 → 맨 위 "업데이트 확인"** → "백업하고 내려받아 설치".
+  앱이 금고를 먼저 자동 백업하고, 내려받은 파일이 원본과 같은지(해시) 확인한 뒤 설치를 시작합니다. 다르면 설치하지 않습니다.
+  - 안드로이드: 설치 화면에서 "업데이트"
+  - 윈도우: 설치 프로그램이 열리고 앱이 잠시 닫힘
+  - 맥·리눅스: 내려받은 폴더가 열림 → 압축을 풀어 기존 앱을 바꾸기
+- 안드로이드는 서명 키가 고정되어 있어야 업데이트가 됩니다 → `docs/안드로이드서명키.md` (한 번만)
+- **앱을 "삭제"하지 마세요.** 안드로이드에서 앱을 삭제하면 금고도 지워집니다. 꼭 필요하면 먼저 백업 파일을 PC 로 옮기세요.
 
 ## 2. 처음 켰을 때 — 마스터 비밀번호와 복구 코드 (가장 중요)
 
@@ -95,7 +107,7 @@ GitHub 저장소의 **Actions → "검사와 빌드" → 가장 최근 성공한
 
 ### 개발자용
 
-- Flutter 3.47.9 / Dart 3.13. `flutter test` (테스트 97개), `flutter analyze`, `flutter build linux|apk|windows|macos`
+- Flutter 3.47.9 / Dart 3.13. `flutter test test/compat`(금고 호환, 가장 먼저) → `flutter test`, `flutter analyze`, `flutter build linux|apk|windows|macos`
 - 구조: `lib/core`(암호화·금고·로그) · `lib/data`(모델·버전 변환·백업) · `lib/logic`(계산·음성·메일) · `lib/app`(상태·운영체제 연결) · `lib/ui`(테마 파일 `ui/theme/tokens.dart` 하나, 화면)
 - 문서: `PLAN.md`, `PROGRESS.md`, `DECISIONS.md`, `BLOCKERS.md`, `docs/보고`, `docs/검증`, `docs/배포준비.md`, `docs/다음단계.md`
 - 보고서용 화면 캡처: `flutter test tool/screenshots_test.dart`

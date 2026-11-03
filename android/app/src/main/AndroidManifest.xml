@@ -8,6 +8,8 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <!-- 지문·얼굴 -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
+    <!-- 새 버전 설치(사용자가 직접 확인) -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
 
     <application
         android:label="구독·계정 비서"
@@ -38,6 +40,16 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- 내려받은 새 버전 APK 를 설치 화면에 넘기기 -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/update_file_paths" />
+        </provider>
         <!-- 예약 알림(재부팅 후에도 다시 예약) -->
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">

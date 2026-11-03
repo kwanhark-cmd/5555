@@ -112,6 +112,21 @@ void main() {
     expect((r as UnlockSuccess).session.mustResetPassword, isTrue);
   });
 
+  test('사용자 목록 파일이 지워져도 금고 폴더를 다시 찾아 열 수 있음', () async {
+    final tmp = copyFixture();
+    addTearDown(() => tmp.deleteSync(recursive: true));
+    File('${tmp.path}/store/profiles.json').deleteSync();
+    final repo = ProfileRepository(Directory('${tmp.path}/store'));
+    final list = await repo.list();
+    expect(list.single.id, profileId);
+    expect(
+      await repo.storeFor(profileId).unlockWithPassword(fixturePassword),
+      isA<UnlockSuccess>(),
+    );
+    File('${tmp.path}/store/profiles.json').writeAsStringSync('{망가짐');
+    expect((await repo.list()).single.id, profileId);
+  });
+
   test('1.0.0 백업 파일을 새 버전이 검사·확인·복원', () async {
     final tmp = Directory.systemTemp.createTempSync('compat_backup');
     addTearDown(() => tmp.deleteSync(recursive: true));

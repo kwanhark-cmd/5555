@@ -8,6 +8,7 @@ import '../../logic/mail_analysis.dart';
 import '../theme/tokens.dart';
 import '../widgets/common.dart';
 import 'recovery_code_view.dart';
+import 'update_card.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -25,6 +26,8 @@ class SettingsScreen extends StatelessWidget {
     return AppPage(
       title: '설정',
       children: [
+        const UpdateCard(),
+        const SizedBox(height: AppTokens.s4),
         const SectionTitle('보기'),
         Text('글씨 크기', style: t.titleMedium),
         const SizedBox(height: 6),

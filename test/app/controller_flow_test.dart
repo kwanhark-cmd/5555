@@ -71,6 +71,16 @@ void main() {
         alerts.any((a) => a.isCredit && a.level == AlertLevel.danger),
         isTrue,
       );
+      // OS 알림 예약(시각과 무관하게: 10일 뒤 만료 → 7일 전 알림은 항상 미래)
+      await app.mutate(
+        (d) => d.credits.add(
+          CreditItem(
+            serviceName: 'Runway',
+            expiresAt: now.add(const Duration(days: 10)),
+          ),
+        ),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 50));
       expect(rig.notifications.scheduled, isNotEmpty);
 
       // 5. 계정 추가 + 비밀번호 생성

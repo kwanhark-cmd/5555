@@ -1,9 +1,12 @@
-# 자동 검사·빌드: 테스트 → 리눅스·안드로이드·윈도우·맥 앱 만들기
+# 자동 검사·빌드·배포
+# - 커밋마다: 금고 호환 테스트 → 테스트 → 리눅스·안드로이드·윈도우·맥 빌드
+# - 버전 태그(v1.2.3)를 올리면: 위 과정 + GitHub Releases 에 설치 파일·해시(SHA-256)·한국어 변경 내역
 name: 검사와 빌드
 
 on:
   push:
     branches: [main, 'claude/**']
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
 
@@ -15,6 +18,8 @@ jobs:
     name: 테스트·린트·리눅스 빌드
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -33,12 +38,20 @@ jobs:
         run: flutter analyze
       - name: 테스트(암호화 왕복·잘못된 비밀번호·흐름·디자인)
         run: flutter test
+      - name: 앱 버전 읽기
+        id: ver
+        run: echo "version=$(grep '^version:' pubspec.yaml | sed 's/version: //; s/+.*//')" >> "$GITHUB_OUTPUT"
+      - name: 태그와 앱 버전이 같은지 확인
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: test "v${{ steps.ver.outputs.version }}" = "${GITHUB_REF_NAME}"
       - name: 리눅스 앱 빌드
         run: flutter build linux --release
+      - name: 리눅스 묶기
+        run: tar -czf account_vault-${{ steps.ver.outputs.version }}-linux.tar.gz -C build/linux/x64/release/bundle .
       - uses: actions/upload-artifact@v4
         with:
           name: linux-app
-          path: build/linux/x64/release/bundle
+          path: account_vault-${{ steps.ver.outputs.version }}-linux.tar.gz
 
   android:
     name: 안드로이드 APK
@@ -57,19 +70,48 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
-      - run: flutter build apk --release
+      - name: 출시용 서명 키 준비(GitHub Secrets 에 있을 때)
+        env:
+          KS: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KS" ]; then
+            echo "$KS" | base64 -d > "$RUNNER_TEMP/release.jks"
+            echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+            echo "출시용 키" > signing.txt
+          else
+            echo "::warning::ANDROID_KEYSTORE_BASE64 비밀값이 없어 시험용 키로 서명합니다(업데이트 설치가 안 될 수 있음). docs/안드로이드서명키.md 참고"
+            echo "시험용 키" > signing.txt
+          fi
+      - name: APK 빌드
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          flutter build apk --release
+          v=$(grep '^version:' pubspec.yaml | sed 's/version: //; s/+.*//')
+          cp build/app/outputs/flutter-apk/app-release.apk "account_vault-$v-android.apk"
+      - name: 서명 키 파일 지우기
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.jks"
       - uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: |
+            account_vault-*-android.apk
+            signing.txt
 
   windows:
-    name: 윈도우 앱
+    name: 윈도우 앱·설치 파일
     needs: test
     runs-on: windows-latest
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+      - name: local_auth 우회 설정(MSVC 정의)이 남아 있는지 확인
+        shell: pwsh
+        run: |
+          if (-not (Select-String -Path windows/CMakeLists.txt -Pattern '_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS' -Quiet)) { throw 'MSVC 우회 정의가 빠졌습니다' }
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
@@ -77,10 +119,18 @@ jobs:
           cache: true
       - run: flutter pub get
       - run: flutter build windows --release
+      - name: 설치 파일 만들기(Inno Setup)
+        shell: pwsh
+        run: |
+          $v = (Select-String -Path pubspec.yaml -Pattern '^version: ([0-9.]+)').Matches[0].Groups[1].Value
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress | Out-Null }
+          & $iscc "/DAppVersion=$v" windows\installer\account_vault.iss
+          if ($LASTEXITCODE -ne 0) { throw '설치 파일 만들기 실패' }
       - uses: actions/upload-artifact@v4
         with:
           name: windows-app
-          path: build/windows/x64/runner/Release
+          path: build/installer/*.exe
 
   macos:
     name: 맥 앱
@@ -97,8 +147,52 @@ jobs:
       - run: flutter pub get
       - run: flutter build macos --release
       - name: 앱 묶기
-        run: cd build/macos/Build/Products/Release && zip -qry account_vault-macos.zip *.app
+        run: |
+          v=$(grep '^version:' pubspec.yaml | sed 's/version: //; s/+.*//')
+          cd build/macos/Build/Products/Release
+          ditto -c -k --keepParent account_vault.app "$GITHUB_WORKSPACE/account_vault-$v-macos.zip"
       - uses: actions/upload-artifact@v4
         with:
           name: macos-app
-          path: build/macos/Build/Products/Release/account_vault-macos.zip
+          path: account_vault-*-macos.zip
+
+  release:
+    name: GitHub Releases 에 올리기
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [test, android, windows, macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: 파일 모으기·해시 계산·변경 내역 만들기
+        run: |
+          v="${{ needs.test.outputs.version }}"
+          mkdir dist
+          find artifacts -type f \( -name '*.apk' -o -name '*.exe' -o -name '*.zip' -o -name '*.tar.gz' \) -exec cp {} dist/ \;
+          signing=$(cat artifacts/android-apk/signing.txt 2>/dev/null || echo "알 수 없음")
+          (cd dist && sha256sum * > SHA256SUMS.txt)
+          {
+            awk -v ver="## [$v]" 'index($0, ver)==1 {p=1; next} /^## \[/ {p=0} p' CHANGELOG.md
+            echo
+            echo "### 설치 전에 꼭"
+            echo "- **복구 코드가 종이에 적혀 있는지 확인**하세요."
+            echo "- 설치 = 덮어쓰기입니다. 금고(구독·계정·비밀번호)는 그대로 남고, 같은 마스터 비밀번호로 열립니다."
+            echo "- 앱 안에서: 설정 → 맨 위 \"업데이트 확인\" (자동 백업 후 내려받고 해시를 확인해 설치)"
+            echo "- 안드로이드 서명: $signing"
+            echo
+            echo "### 파일 확인값(SHA-256)"
+            echo "| 파일 | SHA-256 |"
+            echo "|---|---|"
+            while read -r h f; do echo "| $f | \`$h\` |"; done < dist/SHA256SUMS.txt
+          } > notes.md
+          cat notes.md
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.test.outputs.version }}
+          name: 구독·계정 비서 v${{ needs.test.outputs.version }}
+          body_path: notes.md
+          files: dist/*
