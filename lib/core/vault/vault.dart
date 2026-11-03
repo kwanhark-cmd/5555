@@ -311,7 +311,7 @@ class VaultStore {
         SecretKey(raw),
         aadFor(h.profileId, 'dev'),
       );
-      return _openWithKey(h, dataKey, mustResetPassword: false);
+      return await _openWithKey(h, dataKey, mustResetPassword: false);
     } catch (_) {
       return const UnlockUnavailable('생체 인증으로 열지 못했어요');
     }

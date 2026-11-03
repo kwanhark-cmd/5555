@@ -105,8 +105,9 @@ class VaultCrypto {
   static const keyLength = 32;
   static const saltLength = 16;
 
-  List<int> randomBytes(int length) =>
-      Uint8List.fromList(List<int>.generate(length, (_) => _random.nextInt(256)));
+  List<int> randomBytes(int length) => Uint8List.fromList(
+    List<int>.generate(length, (_) => _random.nextInt(256)),
+  );
 
   /// 마스터 비밀번호(또는 복구 코드)에서 32바이트 키를 만든다.
   Future<SecretKey> deriveKey(
@@ -126,8 +127,7 @@ class VaultCrypto {
     return argon.deriveKeyFromPassword(password: secret, nonce: salt);
   }
 
-  Future<SecretKey> newRandomKey() async =>
-      SecretKey(randomBytes(keyLength));
+  Future<SecretKey> newRandomKey() async => SecretKey(randomBytes(keyLength));
 
   Future<EncryptedBlob> encrypt(
     List<int> plain,

@@ -12,10 +12,31 @@ class PasswordStrength {
 
 class PasswordTools {
   static const _common = {
-    'password', 'passw0rd', 'qwerty', 'qwerty123', '123456', '1234567',
-    '12345678', '123456789', '1234567890', '111111', '000000', 'abc123',
-    'iloveyou', 'admin', 'welcome', 'letmein', 'monkey', 'dragon', '1q2w3e4r',
-    '1q2w3e4r!', 'asdf1234', 'qwer1234', 'zxcvbnm', 'sunshine', 'princess',
+    'password',
+    'passw0rd',
+    'qwerty',
+    'qwerty123',
+    '123456',
+    '1234567',
+    '12345678',
+    '123456789',
+    '1234567890',
+    '111111',
+    '000000',
+    'abc123',
+    'iloveyou',
+    'admin',
+    'welcome',
+    'letmein',
+    'monkey',
+    'dragon',
+    '1q2w3e4r',
+    '1q2w3e4r!',
+    'asdf1234',
+    'qwer1234',
+    'zxcvbnm',
+    'sunshine',
+    'princess',
   };
 
   static PasswordStrength strength(String pw) {
@@ -23,7 +44,8 @@ class PasswordTools {
       return const PasswordStrength(0, '비어 있음', '비밀번호를 입력해 주세요.');
     }
     final lower = pw.toLowerCase();
-    if (_common.contains(lower) || _common.contains(lower.replaceAll(RegExp(r'[^a-z0-9]'), ''))) {
+    if (_common.contains(lower) ||
+        _common.contains(lower.replaceAll(RegExp(r'[^a-z0-9]'), ''))) {
       return const PasswordStrength(0, '아주 약함', '너무 흔한 비밀번호예요.');
     }
     var classes = 0;
@@ -59,7 +81,13 @@ class PasswordTools {
   }
 
   static bool _hasSequence(String s) {
-    const seqs = ['abcdefghijklmnopqrstuvwxyz', '0123456789', 'qwertyuiop', 'asdfghjkl', 'zxcvbnm'];
+    const seqs = [
+      'abcdefghijklmnopqrstuvwxyz',
+      '0123456789',
+      'qwertyuiop',
+      'asdfghjkl',
+      'zxcvbnm',
+    ];
     for (final seq in seqs) {
       for (var i = 0; i + 4 <= seq.length; i++) {
         if (s.contains(seq.substring(i, i + 4))) return true;

@@ -51,9 +51,15 @@ void main() {
     final blob = await c.encrypt(utf8.encode('가짜 데이터'), key, aad: [1, 2]);
     expect(utf8.decode(await c.decrypt(blob, key, aad: [1, 2])), '가짜 데이터');
     // AAD 가 다르면 실패
-    expect(() => c.decrypt(blob, key, aad: [9]), throwsA(isA<VaultCryptoException>()));
+    expect(
+      () => c.decrypt(blob, key, aad: [9]),
+      throwsA(isA<VaultCryptoException>()),
+    );
     // 다른 키면 실패
-    expect(() async => c.decrypt(blob, await c.newRandomKey()), throwsA(isA<VaultCryptoException>()));
+    expect(
+      () async => c.decrypt(blob, await c.newRandomKey()),
+      throwsA(isA<VaultCryptoException>()),
+    );
   });
 
   test('표준 Argon2id 설정으로도 키가 만들어진다', () async {
@@ -68,7 +74,10 @@ void main() {
   test('만들기 → 잠그기 → 맞는 비밀번호로 열기', () async {
     final s = store();
     final (session, code) = await s.create(
-      profileId: 'p1', masterPassword: fakePw, initialData: {'hello': '세계'});
+      profileId: 'p1',
+      masterPassword: fakePw,
+      initialData: {'hello': '세계'},
+    );
     expect(RecoveryCode.isWellFormed(code), isTrue);
     session.lock();
     expect(session.isOpen, isFalse);
@@ -95,8 +104,14 @@ void main() {
 
   test('복구 코드: 열면 새 비밀번호 필수, 이전 코드는 다시 못 씀', () async {
     final s = store();
-    final (_, code) = await s.create(profileId: 'p1', masterPassword: fakePw, initialData: {'x': 1});
-    final r = await s.unlockWithRecoveryCode(code.toLowerCase().replaceAll('-', ' '));
+    final (_, code) = await s.create(
+      profileId: 'p1',
+      masterPassword: fakePw,
+      initialData: {'x': 1},
+    );
+    final r = await s.unlockWithRecoveryCode(
+      code.toLowerCase().replaceAll('-', ' '),
+    );
     expect(r, isA<UnlockSuccess>());
     final session = (r as UnlockSuccess).session;
     expect(session.mustResetPassword, isTrue);
@@ -106,7 +121,10 @@ void main() {
     clock.advance(const Duration(minutes: 10));
     expect(await s.unlockWithRecoveryCode(code), isA<UnlockWrongSecret>());
     clock.advance(const Duration(minutes: 10));
-    expect(await s.unlockWithPassword('new-master-phrase-BBB'), isA<UnlockSuccess>());
+    expect(
+      await s.unlockWithPassword('new-master-phrase-BBB'),
+      isA<UnlockSuccess>(),
+    );
     clock.advance(const Duration(minutes: 10));
     expect(await s.unlockWithRecoveryCode(newCode), isA<UnlockSuccess>());
   });
@@ -114,12 +132,22 @@ void main() {
   test('생체 인증: 성공하면 열리고, 실패·취소하면 비밀번호로 넘어간다', () async {
     final s = store();
     final ks = MemoryKeyStore();
-    final (session, _) = await s.create(profileId: 'p1', masterPassword: fakePw, initialData: {'a': 'b'});
+    final (session, _) = await s.create(
+      profileId: 'p1',
+      masterPassword: fakePw,
+      initialData: {'a': 'b'},
+    );
     expect(await s.unlockWithDevice(ks, FakeGate()), isA<UnlockUnavailable>());
     await session.enableDeviceUnlock(ks);
     expect(await s.unlockWithDevice(ks, FakeGate()), isA<UnlockSuccess>());
-    expect(await s.unlockWithDevice(ks, FakeGate(ok: false)), isA<UnlockUnavailable>());
-    expect(await s.unlockWithDevice(ks, FakeGate(available: false)), isA<UnlockUnavailable>());
+    expect(
+      await s.unlockWithDevice(ks, FakeGate(ok: false)),
+      isA<UnlockUnavailable>(),
+    );
+    expect(
+      await s.unlockWithDevice(ks, FakeGate(available: false)),
+      isA<UnlockUnavailable>(),
+    );
     ks.map['p1'] = List.filled(32, 0); // 바뀐 기기 키
     expect(await s.unlockWithDevice(ks, FakeGate()), isA<UnlockUnavailable>());
   });
@@ -127,22 +155,34 @@ void main() {
   test('디스크에 비밀번호·평문 데이터가 남지 않는다', () async {
     final s = store();
     final (session, code) = await s.create(
-      profileId: 'p1', masterPassword: fakePw,
-      initialData: {'secret': 'FAKE-SITE-PASSWORD-123'});
+      profileId: 'p1',
+      masterPassword: fakePw,
+      initialData: {'secret': 'FAKE-SITE-PASSWORD-123'},
+    );
     await session.save({'secret': 'FAKE-SITE-PASSWORD-123', 'n': 2});
     for (final f in Directory('${tmp.path}/p1').listSync().whereType<File>()) {
       final text = latin1.decode(f.readAsBytesSync());
       expect(text.contains(fakePw), isFalse, reason: f.path);
       expect(text.contains('FAKE-SITE-PASSWORD-123'), isFalse, reason: f.path);
-      expect(text.contains(RecoveryCode.normalize(code)), isFalse, reason: f.path);
+      expect(
+        text.contains(RecoveryCode.normalize(code)),
+        isFalse,
+        reason: f.path,
+      );
     }
   });
 
   test('본문이 손상되면 직전 저장본으로 복구, 둘 다 손상되면 안전하게 실패', () async {
     final s = store();
-    final (session, _) = await s.create(profileId: 'p1', masterPassword: fakePw, initialData: {'v': 1});
+    final (session, _) = await s.create(
+      profileId: 'p1',
+      masterPassword: fakePw,
+      initialData: {'v': 1},
+    );
     await session.save({'v': 2});
-    s.dataFile.writeAsStringSync('{"format":"account-vault-data","blob":{"n":"x"}}');
+    s.dataFile.writeAsStringSync(
+      '{"format":"account-vault-data","blob":{"n":"x"}}',
+    );
     final r = await s.unlockWithPassword(fakePw);
     expect(r, isA<UnlockSuccess>());
     expect((r as UnlockSuccess).session.data['v'], 1);
@@ -161,7 +201,11 @@ void main() {
 
   test('마스터 비밀번호 변경', () async {
     final s = store();
-    final (session, _) = await s.create(profileId: 'p1', masterPassword: fakePw, initialData: {'k': 1});
+    final (session, _) = await s.create(
+      profileId: 'p1',
+      masterPassword: fakePw,
+      initialData: {'k': 1},
+    );
     expect(await session.verifyMasterPassword(fakePw), isTrue);
     expect(await session.verifyMasterPassword('nope'), isFalse);
     await session.changeMasterPassword('changed-phrase-CCC');
@@ -174,7 +218,10 @@ void main() {
   test('복구 코드 형식', () {
     final c = RecoveryCode.generate();
     expect(c.length, 29);
-    expect(RecoveryCode.normalize(c.replaceAll('0', 'o')), RecoveryCode.normalize(c));
+    expect(
+      RecoveryCode.normalize(c.replaceAll('0', 'o')),
+      RecoveryCode.normalize(c),
+    );
     expect(RecoveryCode.isWellFormed('abc'), isFalse);
   });
 
