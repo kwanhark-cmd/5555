@@ -689,8 +689,10 @@ Future<void> reportProblem(BuildContext context) async {
   if (!app.isUnlocked) return;
   final txt = await log.exportText(appVersion: app.services.appVersion);
   final where = await app.services.files.saveText('문제신고기록.txt', txt);
+  // dialogContext 가 사라진 화면이면 앱 맨 위 길잡이로 바꿔 준다(mounted 확인 포함).
+  // ignore: use_build_context_synchronously
   final ctx = dialogContext(context);
-  if (ctx != null) {
+  if (ctx != null && ctx.mounted) {
     ctx.toast(
       where == null
           ? '저장을 취소했어요.'
