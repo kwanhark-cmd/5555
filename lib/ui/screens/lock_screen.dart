@@ -110,7 +110,7 @@ class _LockScreenState extends State<LockScreen> {
   }
 
   Future<void> _unlock() async {
-    final p = selected;
+    final p = selected ?? context.appRead.defaultProfile;
     if (p == null || busy || wait > Duration.zero) return;
     if (pw.text.isEmpty) {
       setState(() => message = '마스터 비밀번호를 입력해 주세요.');
@@ -127,7 +127,7 @@ class _LockScreenState extends State<LockScreen> {
   }
 
   Future<void> _unlockBio() async {
-    final p = selected;
+    final p = selected ?? context.appRead.defaultProfile;
     if (p == null || busy) return;
     setState(() => busy = true);
     try {
@@ -138,7 +138,7 @@ class _LockScreenState extends State<LockScreen> {
   }
 
   Future<void> _recovery() async {
-    final p = selected;
+    final p = selected ?? context.appRead.defaultProfile;
     if (p == null) return;
     final c = TextEditingController();
     final code = await showDialog<String>(
