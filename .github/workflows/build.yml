@@ -40,7 +40,8 @@ jobs:
         run: flutter test
       - name: 앱 버전 읽기
         id: ver
-        run: echo "version=$(grep '^version:' pubspec.yaml | sed 's/version: //; s/+.*//')" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "version=$(grep '^version:' pubspec.yaml | sed 's/version: //; s/+.*//')" >> "$GITHUB_OUTPUT"
       - name: 태그와 앱 버전이 같은지 확인
         if: startsWith(github.ref, 'refs/tags/v')
         run: test "v${{ steps.ver.outputs.version }}" = "${GITHUB_REF_NAME}"
