@@ -1,5 +1,16 @@
 # 로그인 계정과 구독 결제 관리 비서
 
+## ⬇️ 다운로드 (최신 1.1.0)
+
+| 기기 | 바로 내려받기 |
+|---|---|
+| 📱 안드로이드 | [account_vault-1.1.0-android.apk](https://github.com/kwanhark-cmd/5555/releases/download/v1.1.0/account_vault-1.1.0-android.apk) |
+| 🪟 윈도우 | [account_vault-1.1.0-windows-setup.exe](https://github.com/kwanhark-cmd/5555/releases/download/v1.1.0/account_vault-1.1.0-windows-setup.exe) |
+| 🍎 맥 | [account_vault-1.1.0-macos.zip](https://github.com/kwanhark-cmd/5555/releases/download/v1.1.0/account_vault-1.1.0-macos.zip) |
+| 🐧 리눅스 | [account_vault-1.1.0-linux.tar.gz](https://github.com/kwanhark-cmd/5555/releases/download/v1.1.0/account_vault-1.1.0-linux.tar.gz) |
+
+모든 버전·파일 확인값(해시): [Releases](https://github.com/kwanhark-cmd/5555/releases/latest) · 설치 방법은 아래 "1. 설치하기".
+
 유료 구독(Claude, ChatGPT, 제미나이, 힉스필드, 피그마 …), 무료 크레딧·체험판 만료일,
 SNS 계정(페이스북, X, 스레드, 카카오톡 …)과 비밀번호를 **한곳에 안전하게** 모아 주는 앱입니다.
 
