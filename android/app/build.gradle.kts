@@ -4,10 +4,9 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-// 출시용 서명 키: GitHub Secrets → CI 가 파일로 풀어 환경 변수로 알려 준다.
-// 키 파일·비밀번호는 저장소에 절대 넣지 않는다(.gitignore). 없으면 시험용(디버그) 서명.
-val releaseKeystore: String? = System.getenv("ANDROID_KEYSTORE_PATH")
-val hasReleaseKey = releaseKeystore != null && file(releaseKeystore).exists()
+// 서명 키는 쓰지 않는다(주인 결정): 빌드하는 컴퓨터의 시험용(디버그) 키로 서명한다.
+// 그래서 새 버전은 덮어쓰기 설치가 되지 않는다 → 안드로이드 새 버전은
+// "백업 파일을 앱 밖에 저장·확인 → 기존 앱 삭제 → 새 APK 설치 → 첫 화면에서 복원" 순서(README 참고).
 
 android {
     namespace = "com.kwanhark.vaultassistant.account_vault"
@@ -36,21 +35,9 @@ android {
         versionName = flutter.versionName
     }
 
-    signingConfigs {
-        if (hasReleaseKey) {
-            create("release") {
-                storeFile = file(releaseKeystore!!)
-                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("ANDROID_KEY_ALIAS")
-                keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
-            }
-        }
-    }
-
     buildTypes {
         release {
-            // 같은 키로 서명해야 안드로이드가 "업데이트"로 인식해 금고(앱 자료)를 그대로 둔다.
-            signingConfig = if (hasReleaseKey) signingConfigs.getByName("release") else signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 }
