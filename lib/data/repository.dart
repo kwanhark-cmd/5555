@@ -189,6 +189,12 @@ class BackupService {
     });
   }
 
+  /// 지금 금고 내용의 해시(백업 파일의 sha256 과 같은 방식). 저장한 백업이 지금 금고와 같은지 볼 때 쓴다.
+  Future<String> payloadSha(String profileId) async {
+    final payload = await profiles.storeFor(profileId).exportRaw();
+    return crypto.sha256Hex(utf8.encode(jsonEncode(payload)));
+  }
+
   /// 복원 전에 파일을 검사한다(형식·버전·손상 여부).
   Future<BackupInfo> inspect(String content) async {
     Object? raw;

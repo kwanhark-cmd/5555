@@ -319,24 +319,32 @@ class DeviceTts implements TtsPort {
   }
 }
 
+/// 파일 고르기 창에 넘길 확장자 목록.
+/// 안드로이드는 확장자를 MIME 형식으로 바꿔 거르는데 `.vaultbackup` 은 모르는 형식이라 빠지고
+/// `json` 만 남아 백업 파일이 회색(선택 불가)이 된다 → 안드로이드는 거르지 않는다(내용은 열어서 검사).
+List<String>? pickerExtensions(String os, List<String> extensions) {
+  if (os == 'android') return null;
+  return extensions.isEmpty ? null : extensions;
+}
+
 class PlatformFiles implements FilePort {
   @override
   Future<String?> saveText(String suggestedName, String content) async {
     try {
       if (Platform.isAndroid || Platform.isIOS) {
-        final dir = await getTemporaryDirectory();
+        // 공유할 임시 파일(암호화된 내용). 받는 앱(드라이브 등)이 늦게 읽어도 되도록
+        // 바로 지우지 않고, 다음에 공유할 때 이전 파일을 지운다.
+        final dir = Directory(
+          p.join((await getTemporaryDirectory()).path, 'share_out'),
+        );
+        if (dir.existsSync()) await dir.delete(recursive: true);
+        await dir.create(recursive: true);
         final f = File(p.join(dir.path, suggestedName));
         await f.writeAsString(content, flush: true);
         final r = await SharePlus.instance.share(
           ShareParams(files: [XFile(f.path)], title: suggestedName),
         );
-        // 공유가 끝나면 임시 파일은 지운다.
-        unawaited(
-          Future.delayed(const Duration(minutes: 2), () async {
-            if (f.existsSync()) await f.delete();
-          }),
-        );
-        return r.status == ShareResultStatus.dismissed ? null : '공유한 위치';
+        return r.status == ShareResultStatus.dismissed ? null : sharedLocation;
       }
       final loc = await getSaveLocation(suggestedName: suggestedName);
       if (loc == null) return null;
@@ -355,7 +363,7 @@ class PlatformFiles implements FilePort {
         acceptedTypeGroups: [
           XTypeGroup(
             label: '파일',
-            extensions: extensions.isEmpty ? null : extensions,
+            extensions: pickerExtensions(Platform.operatingSystem, extensions),
             uniformTypeIdentifiers: const ['public.data'],
           ),
         ],

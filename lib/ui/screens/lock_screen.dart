@@ -8,6 +8,7 @@ import '../../core/vault/vault.dart';
 import '../../data/repository.dart';
 import '../theme/tokens.dart';
 import '../widgets/common.dart';
+import 'backup_flow.dart';
 
 /// 잠금 화면. 잠긴 동안에는 어떤 개인 데이터도 보여 주지 않는다(사용자 별명만).
 class LockScreen extends StatefulWidget {
@@ -120,81 +121,17 @@ class _LockScreenState extends State<LockScreen> {
   }
 
   /// 금고 파일이 손상되어 열 수 없을 때: 잠금 화면에서 바로 백업으로 복원.
-  Future<void> _restoreFromBackup() async {
-    final app = context.appRead;
-    final text = await app.services.files.openText(
-      extensions: ['vaultbackup', 'json'],
-    );
-    if (text == null || !mounted) return;
-    try {
-      final info = await app.backups.inspect(text);
-      if (!mounted) return;
-      final c = TextEditingController();
-      final pw = await showSafeDialog<String>(
-        context,
-        (ctx) => AlertDialog(
-          title: const Text('백업의 마스터 비밀번호'),
-          content: BigField(
-            controller: c,
-            label: '마스터 비밀번호',
-            obscure: true,
-            autofocus: true,
-          ),
-          actions: [
-            BigButton(
-              label: '취소',
-              kind: ButtonKind.plain,
-              expand: false,
-              raised: false,
-              onPressed: () => Navigator.pop(ctx),
-            ),
-            BigButton(
-              label: '확인',
-              expand: false,
-              raised: false,
-              onPressed: () => Navigator.pop(ctx, c.text),
-            ),
-          ],
-        ),
-      );
-      c.dispose();
-      if (pw == null || !mounted) return;
-      if (!await app.backups.verifyPassword(
-        info,
-        pw,
-        app.services.scratchDir,
-      )) {
-        if (mounted) {
-          await showErrorDialog(
-            context,
-            stage: FailStage.restore,
-            message: '백업의 마스터 비밀번호가 맞지 않아요.',
-            onRetry: _restoreFromBackup,
-          );
-        }
-        return;
-      }
-      await app.backups.restore(info, app.services.appVersion);
-      await app.reloadProfiles();
-      log.info('잠금 화면에서 백업 복원 완료');
+  Future<void> _restoreFromBackup() => restoreFromBackupFile(
+    context,
+    onRestored: () async {
       if (mounted) {
         setState(() {
           messageKind = StatusKind.safe;
           message = '복원했어요. 백업의 마스터 비밀번호로 열어 주세요.';
         });
       }
-    } on BackupException catch (e) {
-      if (mounted) {
-        await showErrorDialog(
-          context,
-          stage: FailStage.restore,
-          message: e.message,
-          nextActionLabel: '다른 파일 고르기',
-          onNextAction: _restoreFromBackup,
-        );
-      }
-    }
-  }
+    },
+  );
 
   Future<void> _unlock() async {
     final p = selected ?? context.appRead.defaultProfile;

@@ -9,7 +9,10 @@ import '../../logic/mail_analysis.dart';
 import '../theme/tokens.dart';
 import '../widgets/common.dart';
 import '../widgets/cards.dart';
+import '../../app/app_controller.dart';
+import '../../app/services.dart';
 import 'appearance_section.dart';
+import 'backup_flow.dart';
 import 'recovery_code_view.dart';
 import 'update_card.dart';
 
@@ -875,26 +878,18 @@ class BackupScreen extends StatefulWidget {
 class _BackupScreenState extends State<BackupScreen> {
   bool busy = false;
 
+  /// 저장한 백업 파일 확인 결과(이 화면에서만).
+  SavedBackupCheck? checked;
+
   Future<void> _export() async {
     final app = context.appRead;
-    setState(() => busy = true);
+    setState(() {
+      busy = true;
+      checked = null;
+    });
     try {
-      final info = app.currentProfile!;
-      final json = await app.backups.export(
-        info.id,
-        info.name,
-        app.services.appVersion,
-      );
-      final d = app.now();
-      final name =
-          '금고백업-${d.year}${d.month.toString().padLeft(2, '0')}${d.day.toString().padLeft(2, '0')}.vaultbackup';
-      final where = await app.services.files.saveText(name, json);
-      log.info('백업 내보냄');
-      if (mounted) {
-        context.toast(
-          where == null ? '저장을 취소했어요.' : '백업을 저장했어요. 마스터 비밀번호가 있어야 열 수 있어요.',
-        );
-      }
+      final where = await saveBackupFile(app);
+      if (mounted) context.toast(backupSavedMessage(where));
     } catch (e) {
       log.error('백업 실패', e);
       if (mounted) {
@@ -911,10 +906,31 @@ class _BackupScreenState extends State<BackupScreen> {
     }
   }
 
+  Future<void> _verify() async {
+    final app = context.appRead;
+    setState(() => busy = true);
+    try {
+      final r = await pickAndCheckSavedBackup(app);
+      if (mounted && r != null) setState(() => checked = r);
+    } catch (e) {
+      log.error('백업 파일 확인 실패', e);
+      if (mounted) {
+        setState(
+          () => checked = const SavedBackupCheck(
+            false,
+            '백업 파일을 확인하지 못했어요. 다시 골라 주세요.',
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
   Future<void> _restore() async {
     final app = context.appRead;
     final text = await app.services.files.openText(
-      extensions: ['vaultbackup', 'json'],
+      extensions: backupExtensions,
     );
     if (text == null || !mounted) return;
     setState(() => busy = true);
@@ -980,6 +996,7 @@ class _BackupScreenState extends State<BackupScreen> {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
+    final app = context.app;
     return AppPage(
       title: '백업',
       restoreId: 'backup',
@@ -991,6 +1008,20 @@ class _BackupScreenState extends State<BackupScreen> {
           '휴대폰을 바꾸거나 고장 날 때를 대비해 가끔 백업해 USB 등에 보관하세요.',
           style: t.bodyLarge,
         ),
+        if (app.services.installer.os == 'android') ...[
+          gap,
+          FlatCard(
+            status: StatusKind.caution,
+            child: Text(androidDeleteWarning, style: t.bodyLarge),
+          ),
+        ],
+        if (checked != null) ...[
+          gap,
+          StatusBadge(
+            checked!.ok ? StatusKind.safe : StatusKind.danger,
+            checked!.message,
+          ),
+        ],
         gapBig,
         if (busy)
           const Center(child: CircularProgressIndicator())
@@ -1000,6 +1031,13 @@ class _BackupScreenState extends State<BackupScreen> {
             icon: Icons.download_rounded,
             kind: ButtonKind.safe,
             onPressed: _export,
+          ),
+          gap,
+          BigButton(
+            label: '저장한 백업 파일 확인',
+            icon: Icons.fact_check_rounded,
+            kind: ButtonKind.plain,
+            onPressed: _verify,
           ),
           gap,
           BigButton(

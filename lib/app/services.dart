@@ -38,6 +38,13 @@ abstract class TtsPort {
   Future<void> stop();
 }
 
+/// 안드로이드·아이폰에서 공유 창으로 넘겼을 때 [FilePort.saveText] 가 돌려주는 값.
+/// 공유 창은 실제로 저장됐는지 알려 주지 않으므로, 화면은 "저장 완료"라고 말하지 않고 확인을 시킨다.
+const sharedLocation = '공유한 위치';
+
+/// 백업 파일 고르기에 쓰는 확장자(안드로이드는 거르지 않음: [FilePort.openText] 구현 참고).
+const backupExtensions = ['vaultbackup', 'json'];
+
 abstract class FilePort {
   /// 글자 파일 저장. 성공하면 저장 위치(설명용) 반환, 취소·실패면 null.
   Future<String?> saveText(String suggestedName, String content);

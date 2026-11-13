@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -384,6 +385,50 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  /// 마지막으로 만든 백업 파일의 내용 해시(메모리에만). "저장한 백업 파일 확인"에서 비교한다.
+  String? _lastBackupSha;
+
+  /// 지금 사용자의 백업 파일 내용(암호화된 그대로)을 만든다. 저장은 화면 쪽에서.
+  Future<String> exportBackup() async {
+    final info = currentProfile;
+    if (info == null) throw StateError('잠긴 상태');
+    final json = await backups.export(info.id, info.name, services.appVersion);
+    _lastBackupSha = (jsonDecode(json) as Map)['sha256'] as String?;
+    return json;
+  }
+
+  /// 사용자가 앱 밖에 저장한 백업 파일을 다시 골랐을 때: 손상 없이 열리고, 이 사용자의 것이며,
+  /// 방금 만든 백업(또는 지금 금고 내용)과 같은지 확인한다. 금고는 바꾸지 않는다.
+  Future<SavedBackupCheck> checkSavedBackup(String content) async {
+    final info = currentProfile;
+    if (info == null) throw StateError('잠긴 상태');
+    final BackupInfo b;
+    try {
+      b = await backups.inspect(content);
+    } on BackupException catch (e) {
+      return SavedBackupCheck(false, '${e.message} 백업 파일을 다시 만들어 저장해 주세요.');
+    }
+    if (b.profileId != info.id) {
+      return SavedBackupCheck(
+        false,
+        '다른 사용자("${b.profileName}")의 백업이에요. 방금 저장한 파일을 골라 주세요.',
+      );
+    }
+    final sha = (jsonDecode(content) as Map)['sha256'];
+    final current = await backups.payloadSha(info.id);
+    if (sha == _lastBackupSha || sha == current) {
+      log.info('저장한 백업 파일 확인 완료');
+      return const SavedBackupCheck(
+        true,
+        '확인했어요. 이 백업 파일은 손상되지 않았고 지금 금고와 같아요. 이 파일과 마스터 비밀번호를 잘 보관하세요.',
+      );
+    }
+    return const SavedBackupCheck(
+      false,
+      '예전에 만든 백업 파일이에요. 지금 금고 내용과 달라요. "백업 파일 만들기"로 새로 만든 뒤 그 파일을 골라 주세요.',
+    );
+  }
+
   /// 업데이트 전 자동 암호화 백업(앱 자료 폴더의 auto_backups). 저장 경로를 돌려준다.
   Future<String> backupBeforeUpdate(String newVersion) async {
     final info = currentProfile;
@@ -455,4 +500,11 @@ class NavStackObserver extends NavigatorObserver {
       stack.add(newRoute);
     }
   }
+}
+
+/// 저장한 백업 파일 확인 결과.
+class SavedBackupCheck {
+  const SavedBackupCheck(this.ok, this.message);
+  final bool ok;
+  final String message;
 }

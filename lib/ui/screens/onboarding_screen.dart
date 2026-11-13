@@ -5,6 +5,7 @@ import '../../core/crypto/recovery_code.dart';
 import '../../data/repository.dart';
 import '../theme/tokens.dart';
 import '../widgets/common.dart';
+import 'backup_flow.dart';
 import 'recovery_code_view.dart';
 
 /// 첫 실행 마법사: 글씨 크기 → 마스터 비밀번호 → 복구 코드 보관 확인 → 생체 인증 → 권한.
@@ -81,6 +82,23 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final app = context.appRead;
     recoveryCode = null;
     app.endOnboarding();
+  }
+
+  /// 새로 설치한 뒤: 앱 밖에 저장해 둔 백업 파일로 금고를 되살리고 잠금 화면으로 간다.
+  Future<void> _restore() async {
+    setState(() => busy = true);
+    try {
+      await restoreFromBackupFile(
+        context,
+        onRestored: () async {
+          if (!mounted) return;
+          context.toast('복원했어요. 백업의 마스터 비밀번호로 열어 주세요.');
+          context.appRead.endOnboarding();
+        },
+      );
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
   }
 
   void _cancelAddUser() {
@@ -179,6 +197,23 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               icon: Icons.arrow_forward_rounded,
               onPressed: () => setState(() => step = 1),
             ),
+            if (app.profileList.isEmpty) ...[
+              gapBig,
+              FlatCard(
+                child: Text(
+                  '새 버전을 설치했거나 휴대폰을 바꿨나요? 저장해 둔 백업 파일이 있으면 '
+                  '새로 만들지 말고 백업 파일로 복원하세요. 백업을 만들 때의 마스터 비밀번호가 필요해요.',
+                  style: t.bodyLarge,
+                ),
+              ),
+              gap,
+              BigButton(
+                label: '쓰던 금고가 있어요 — 백업 파일로 복원',
+                icon: Icons.restore_rounded,
+                kind: ButtonKind.plain,
+                onPressed: busy ? null : _restore,
+              ),
+            ],
           ],
         );
       case 1:

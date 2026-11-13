@@ -75,13 +75,16 @@ class FakeTts implements TtsPort {
 class FakeFiles implements FilePort {
   final saved = <String, String>{};
   String? toOpen;
+
+  /// true 면 안드로이드처럼 공유 창으로 넘긴 것으로 답한다.
+  bool shareSheet = false;
   @override
   Future<String?> openText({List<String> extensions = const []}) async =>
       toOpen;
   @override
   Future<String?> saveText(String name, String content) async {
     saved[name] = content;
-    return '/fake/$name';
+    return shareSheet ? sharedLocation : '/fake/$name';
   }
 }
 
@@ -110,8 +113,9 @@ class FakeHaptics implements HapticPort {
 class FakeInstaller implements InstallerPort {
   final installed = <String>[];
   Directory? dir;
+  String osName = 'android';
   @override
-  String get os => 'android';
+  String get os => osName;
   @override
   Future<Directory> downloadDir() async =>
       dir ??= Directory.systemTemp.createTempSync('dl');
@@ -141,6 +145,8 @@ class TestRig {
   FakeBiometric get biometric => services.biometric as FakeBiometric;
   FakeTts get tts => services.tts as FakeTts;
   FakeFiles get files => services.files as FakeFiles;
+  FakeInstaller get installer => services.installer as FakeInstaller;
+  FakeLauncher get launcher => services.launcher as FakeLauncher;
   FakeNotifications get notifications =>
       services.notifications as FakeNotifications;
 
