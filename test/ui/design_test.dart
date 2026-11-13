@@ -12,6 +12,7 @@ import 'package:account_vault/ui/screens/voice_screen.dart';
 import 'package:account_vault/ui/theme/tokens.dart';
 import 'package:account_vault/ui/widgets/common.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../support/fakes.dart';
@@ -91,6 +92,25 @@ Future<void> settle(WidgetTester tester) async {
   }
 }
 
+/// 누를 수 있는 것은 모두 48×48 이상(화면에 그려진 것만).
+void checkTouchTargets(WidgetTester tester, String screen) {
+  final targets = find.byWidgetPredicate(
+    (w) => w is Press3D || w is ButtonStyleButton || w is IconButton,
+  );
+  expect(targets, findsWidgets, reason: '"$screen" 화면에 버튼이 없음');
+  for (final el in targets.evaluate()) {
+    final box = el.renderObject;
+    if (box is! RenderBox || !box.hasSize) continue;
+    final s = box.size;
+    expect(
+      s.width >= AppTokens.minTouch - 0.01 &&
+          s.height >= AppTokens.minTouch - 0.01,
+      isTrue,
+      reason: '"$screen" 화면 ${el.widget.runtimeType} 크기 $s',
+    );
+  }
+}
+
 void main() {
   const variants = [
     ('light', 2), // 가장 큰 글씨 + 밝게
@@ -131,6 +151,7 @@ void main() {
             final err = tester.takeException();
             if (err is FlutterError) debugPrint(err.toStringDeep());
             expect(err, isNull, reason: '"${e.key}" 화면에서 오류: $err');
+            checkTouchTargets(tester, e.key);
             nav.pop();
             await settle(tester);
           }
@@ -247,20 +268,32 @@ void main() {
     expect(find.text('AI: 연결됨'), findsOneWidget);
   });
 
-  test('색 테마 4종 × 밝게/어둡게: 주요 버튼·큰 숫자 대비 AA', () {
+  const minText = AppTokens.minTextContrast;
+
+  test('보기 쉬움 기준값: 본문·버튼 글자 대비 7:1 이상', () {
+    expect(minText, greaterThanOrEqualTo(7));
+  });
+
+  test('색 테마 4종 × 밝게/어둡게: 주요 버튼·주요색 글자 대비 7:1', () {
     for (final base in [AppPalette.light, AppPalette.dark]) {
       for (final theme in AppPalette.colorThemes.keys) {
         final p = base.withColorTheme(theme);
         expect(
           contrastRatio(p.onPrimary, p.primary),
-          greaterThanOrEqualTo(4.5),
+          greaterThanOrEqualTo(minText),
           reason: '${p.name} 버튼',
         );
         expect(
+          contrastRatio(p.onPrimary, pressedColor(p.primary, p.onPrimary)),
+          greaterThanOrEqualTo(minText),
+          reason: '${p.name} 누른 버튼',
+        );
+        expect(
           contrastRatio(p.primary, p.surface),
-          greaterThanOrEqualTo(4.5),
+          greaterThanOrEqualTo(minText),
           reason: '${p.name} 글자',
         );
+        expect(p.outline, base.outline, reason: '${p.name} 테두리 유지');
       }
     }
     expect(
@@ -269,33 +302,258 @@ void main() {
     );
   });
 
-  group('색 대비(WCAG AA)', () {
+  group('색 대비(본문·버튼 7:1, 테두리 4.5:1)', () {
     for (final p in AppPalette.all) {
       test(p.name, () {
-        void aa(Color fg, Color bg, String what, [double min = 4.5]) => expect(
+        void check(
+          Color fg,
+          Color bg,
+          String what, [
+          double min = minText,
+        ]) => expect(
           contrastRatio(fg, bg),
           greaterThanOrEqualTo(min),
           reason:
               '${p.name}: $what ${contrastRatio(fg, bg).toStringAsFixed(2)}',
         );
+        for (final bg in [
+          p.background,
+          p.surface,
+          p.surfaceAlt,
+          p.tileTop,
+          p.tileBottom,
+        ]) {
+          check(p.text, bg, '본문 글자');
+          check(p.textMuted, bg, '설명 글자(흐린 회색 금지)');
+          check(p.outline, bg, '테두리 버튼·입력칸 테두리', 4.5);
+          check(p.focusRing, bg, '초점 고리', 4.5);
+        }
         for (final bg in [p.background, p.surface, p.surfaceAlt]) {
-          aa(p.text, bg, '본문 글자');
-          aa(p.textMuted, bg, '흐린 글자');
           for (final k in StatusKind.values) {
-            aa(p.status(k), p.surface, '상태색 $k 글자');
+            check(p.status(k), bg, '상태색 $k 글자');
           }
         }
-        aa(p.onPrimary, p.primary, '주요 버튼');
-        aa(p.onAccent, p.accent, '강조 버튼');
         for (final k in StatusKind.values) {
-          aa(p.onStatusFill(k), p.statusFill(k), '상태 배지 $k');
+          check(p.onStatusFill(k), p.statusFill(k), '상태 배지 $k');
         }
-        aa(p.text, p.tileTop, '타일 위쪽');
-        aa(p.text, p.tileBottom, '타일 아래쪽');
-        aa(p.textMuted, p.tileBottom, '타일 설명');
+        for (final k in ButtonKind.values) {
+          final (bg, fg) = BigButton.colorsFor(p, k);
+          check(fg, bg, '버튼 $k');
+          check(fg, BigButton.pressedFor(p, k), '누른 버튼 $k');
+          // 누른 모습이 눈에 보이게 달라짐
+          expect(
+            BigButton.pressedFor(p, k),
+            isNot(bg),
+            reason: '${p.name}: 누른 버튼 $k 바탕이 그대로',
+          );
+        }
+        // 테두리 버튼 바탕은 화면 바탕과 같은 계열(글자는 본문색)
+        expect(BigButton.colorsFor(p, ButtonKind.plain).$2, p.text);
       });
     }
   });
+
+  test('위험 버튼은 모든 모드에서 분명한 빨강', () {
+    for (final p in AppPalette.all) {
+      final (bg, _) = BigButton.colorsFor(p, ButtonKind.danger);
+      final hsv = HSVColor.fromColor(bg);
+      final hue = hsv.hue;
+      expect(
+        hue <= 10 || hue >= 350,
+        isTrue,
+        reason: '${p.name}: 위험 버튼 색상각 $hue',
+      );
+      expect(
+        hsv.saturation,
+        greaterThanOrEqualTo(0.5),
+        reason: '${p.name}: 위험 버튼 채도',
+      );
+      expect(p.danger, isNot(p.primary));
+    }
+  });
+
+  test('글자·버튼 크기 규칙(디자인 값)', () {
+    expect(AppTokens.buttonHeight, greaterThanOrEqualTo(52));
+    expect(AppTokens.minTouch, greaterThanOrEqualTo(48));
+    expect(AppTokens.fontButton, greaterThanOrEqualTo(17));
+    expect(AppTokens.fontBody, greaterThanOrEqualTo(16));
+    expect(AppTokens.fontSmall, greaterThanOrEqualTo(16));
+    expect(AppTokens.fontBadge, greaterThanOrEqualTo(16));
+    expect(AppTokens.fontBadgeCompact, greaterThanOrEqualTo(16));
+    expect(AppTokens.outlineWidth, greaterThanOrEqualTo(2));
+    expect(AppTokens.focusRingWidth, greaterThanOrEqualTo(2));
+  });
+
+  group('앱 테마(ThemeData) 규칙', () {
+    for (final p in AppPalette.all) {
+      test(p.name, () {
+        final t = buildTheme(p);
+        final tt = t.textTheme;
+        for (final (name, style) in [
+          ('bodyLarge', tt.bodyLarge),
+          ('bodyMedium', tt.bodyMedium),
+          ('bodySmall', tt.bodySmall),
+          ('titleMedium', tt.titleMedium),
+          ('labelLarge', tt.labelLarge),
+          ('labelMedium', tt.labelMedium),
+          ('labelSmall', tt.labelSmall),
+        ]) {
+          expect(
+            style!.fontSize,
+            greaterThanOrEqualTo(16),
+            reason: '${p.name}: $name 글자 크기',
+          );
+        }
+        expect(tt.labelLarge!.fontSize, greaterThanOrEqualTo(17));
+        expect(tt.labelLarge!.fontWeight, FontWeight.w700);
+        expect(tt.bodyLarge!.color, p.text);
+        expect(tt.bodyMedium!.color, p.text);
+
+        const none = <WidgetState>{};
+        const pressed = {WidgetState.pressed};
+        const focused = {WidgetState.focused};
+        for (final (name, style) in [
+          ('filled', t.filledButtonTheme.style!),
+          ('elevated', t.elevatedButtonTheme.style!),
+          ('outlined', t.outlinedButtonTheme.style!),
+        ]) {
+          final min = style.minimumSize!.resolve(none)!;
+          expect(min.height, greaterThanOrEqualTo(52), reason: '$name 높이');
+          expect(min.width, greaterThanOrEqualTo(48), reason: '$name 너비');
+          final ts = style.textStyle!.resolve(none)!;
+          expect(ts.fontSize, greaterThanOrEqualTo(17), reason: '$name 글자');
+          expect(ts.fontWeight, FontWeight.w700);
+          final bg = style.backgroundColor!.resolve(none)!;
+          final fg = style.foregroundColor!.resolve(none)!;
+          expect(
+            contrastRatio(fg, bg),
+            greaterThanOrEqualTo(minText),
+            reason: '${p.name} $name 글자 대비',
+          );
+          expect(style.overlayColor!.resolve(pressed), isNotNull);
+          expect(style.overlayColor!.resolve(focused), isNotNull);
+          final ring = style.side!.resolve(focused)!;
+          expect(ring.width, greaterThanOrEqualTo(2), reason: '$name 초점');
+        }
+        final filled = t.filledButtonTheme.style!;
+        expect(filled.backgroundColor!.resolve(none), p.primary);
+        expect(
+          filled.backgroundColor!.resolve(pressed),
+          isNot(p.primary),
+          reason: '누른 모습',
+        );
+        final outlined = t.outlinedButtonTheme.style!;
+        final side = outlined.side!.resolve(none)!;
+        expect(side.width, greaterThanOrEqualTo(2));
+        expect(side.color, p.outline);
+        final textBtn = t.textButtonTheme.style!;
+        expect(
+          textBtn.minimumSize!.resolve(none)!.height,
+          greaterThanOrEqualTo(48),
+        );
+        expect(
+          textBtn.textStyle!.resolve(none)!.fontSize,
+          greaterThanOrEqualTo(17),
+        );
+        expect(
+          t.iconButtonTheme.style!.minimumSize!.resolve(none)!.shortestSide,
+          greaterThanOrEqualTo(48),
+        );
+        expect(t.materialTapTargetSize, MaterialTapTargetSize.padded);
+        final input = t.inputDecorationTheme;
+        final enabledSide =
+            (input.enabledBorder! as OutlineInputBorder).borderSide;
+        expect(enabledSide.width, greaterThanOrEqualTo(2));
+        expect(enabledSide.color, p.outline);
+        expect(input.helperStyle!.fontSize, greaterThanOrEqualTo(16));
+        expect(input.errorStyle!.fontSize, greaterThanOrEqualTo(16));
+      });
+    }
+  });
+
+  for (final p in AppPalette.all) {
+    testWidgets('큰 버튼 실제 모습: ${p.name}', (tester) async {
+      setSize(tester, const Size(360, 1400));
+      final focus = FocusNode();
+      addTearDown(focus.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: buildTheme(p),
+          home: AppTheme(
+            palette: p,
+            reduceMotion: true,
+            child: Scaffold(
+              body: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Focus(focusNode: focus, child: const SizedBox()),
+                  for (final k in ButtonKind.values)
+                    Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: BigButton(
+                        key: ValueKey(k),
+                        label: '버튼 $k',
+                        kind: k,
+                        expand: false,
+                        onPressed: () {},
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      for (final k in ButtonKind.values) {
+        final f = find.byKey(ValueKey(k));
+        final size = tester.getSize(f);
+        expect(size.height, greaterThanOrEqualTo(52), reason: '$k 높이');
+        expect(size.width, greaterThanOrEqualTo(48), reason: '$k 너비');
+        final text = tester.widget<Text>(
+          find.descendant(of: f, matching: find.byType(Text)),
+        );
+        expect(text.style!.fontSize, greaterThanOrEqualTo(17));
+        expect(text.style!.fontWeight, FontWeight.w700);
+        final box = tester.widget<AnimatedContainer>(
+          find.descendant(of: f, matching: find.byType(AnimatedContainer)),
+        );
+        final deco = box.decoration! as BoxDecoration;
+        if (k == ButtonKind.plain) {
+          final b = deco.border! as Border;
+          expect(b.top.width, greaterThanOrEqualTo(2), reason: '테두리 버튼');
+          expect(b.top.color, p.outline);
+        }
+        // 누르는 동안 바탕색이 바뀜
+        final g = await tester.startGesture(tester.getCenter(f));
+        await tester.pump();
+        final down = tester.widget<AnimatedContainer>(
+          find.descendant(of: f, matching: find.byType(AnimatedContainer)),
+        );
+        expect(
+          (down.decoration! as BoxDecoration).color,
+          isNot(deco.color),
+          reason: '$k 누른 모습',
+        );
+        await g.cancel();
+        await tester.pump();
+      }
+      // 키보드 초점: Tab 으로 첫 버튼에 가면 초점 고리가 보임
+      CustomPaint ring() => tester.widget<CustomPaint>(
+        find
+            .descendant(
+              of: find.byKey(const ValueKey(ButtonKind.primary)),
+              matching: find.byType(CustomPaint),
+            )
+            .first,
+      );
+      expect(ring().foregroundPainter, isNull);
+      focus.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      expect(ring().foregroundPainter, isNotNull, reason: '초점 고리');
+    });
+  }
 
   testWidgets('움직임 줄이기: 애니메이션 시간이 0', (tester) async {
     late Duration d1, d2;
@@ -326,10 +584,5 @@ void main() {
     expect(d1, Duration.zero);
     expect(d2, AppTokens.lockAnimation);
     expect(AppTokens.lockAnimation.inMilliseconds, lessThan(1000));
-  });
-
-  test('버튼·터치 크기 규칙', () {
-    expect(AppTokens.buttonHeight, greaterThanOrEqualTo(56));
-    expect(AppTokens.minTouch, greaterThanOrEqualTo(48));
   });
 }

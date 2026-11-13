@@ -21,7 +21,7 @@ import '../core/log/app_logger.dart';
 import '../core/vault/vault.dart';
 import 'services.dart';
 
-const appVersion = '1.2.0';
+const appVersion = '1.2.1';
 
 Future<AppServices> createPlatformServices() async {
   final support = await getApplicationSupportDirectory();

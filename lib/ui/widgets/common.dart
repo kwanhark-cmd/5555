@@ -80,12 +80,17 @@ class Mascot extends StatelessWidget {
 }
 
 /// 누르면 쑥 들어가고 놓으면 튀어오르는 입체 효과.
+///
+/// 보기 쉬움 규칙(테마 한 곳에서 모든 버튼·타일에 적용):
+/// - 누르는 동안: 바탕색이 [pressedColor] 로 바뀜(없으면 두꺼운 주요색 테두리)
+/// - 키보드 초점: 바깥에 굵은 초점 고리, 엔터·스페이스로 누름
 class Press3D extends StatefulWidget {
   const Press3D({
     super.key,
     required this.child,
     required this.onTap,
     this.color,
+    this.pressedColor,
     this.radius = AppTokens.radiusButton,
     this.raised = true,
     this.border,
@@ -96,6 +101,7 @@ class Press3D extends StatefulWidget {
   final Widget child;
   final VoidCallback? onTap;
   final Color? color;
+  final Color? pressedColor;
   final double radius;
   final bool raised;
   final BoxBorder? border;
@@ -108,49 +114,82 @@ class Press3D extends StatefulWidget {
 
 class _Press3DState extends State<Press3D> {
   bool _down = false;
+  bool _focused = false;
+
+  void _activate() {
+    context.tapFeedback();
+    widget.onTap!();
+  }
 
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
     final enabled = widget.onTap != null;
     final d = context.motion(AppTokens.pressDuration);
+    final pressedFill = _down && widget.pressedColor != null;
+    final radius = BorderRadius.circular(widget.radius);
     return Semantics(
       button: true,
       enabled: enabled,
       label: widget.semanticLabel,
-      child: GestureDetector(
-        onTapDown: enabled ? (_) => setState(() => _down = true) : null,
-        onTapCancel: () => setState(() => _down = false),
-        onTapUp: enabled ? (_) => setState(() => _down = false) : null,
-        onTap: enabled
-            ? () {
-                context.tapFeedback();
-                widget.onTap!();
-              }
-            : null,
-        child: AnimatedScale(
-          scale: _down ? 0.97 : 1,
-          duration: d,
-          curve: Curves.easeOutBack,
-          child: AnimatedContainer(
-            duration: d,
-            transform: Matrix4.translationValues(0, _down ? 4 : 0, 0),
-            decoration: BoxDecoration(
-              color: widget.gradient == null
-                  ? (widget.color ?? p.surface)
-                  : null,
-              gradient: widget.gradient,
-              borderRadius: BorderRadius.circular(widget.radius),
-              border:
-                  widget.border ??
-                  (p.name == 'contrast'
-                      ? Border.all(color: p.border, width: 2)
-                      : null),
-              boxShadow: widget.raised && enabled
-                  ? AppTokens.raised(p, pressed: _down)
-                  : null,
+      child: FocusableActionDetector(
+        enabled: enabled,
+        mouseCursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
+        onShowFocusHighlight: (v) => setState(() => _focused = v),
+        actions: {
+          ActivateIntent: CallbackAction<ActivateIntent>(
+            onInvoke: (_) {
+              if (enabled) _activate();
+              return null;
+            },
+          ),
+        },
+        child: GestureDetector(
+          onTapDown: enabled ? (_) => setState(() => _down = true) : null,
+          onTapCancel: () => setState(() => _down = false),
+          onTapUp: enabled ? (_) => setState(() => _down = false) : null,
+          onTap: enabled ? _activate : null,
+          child: CustomPaint(
+            foregroundPainter: _focused
+                ? _FocusRingPainter(p.focusRing, widget.radius)
+                : null,
+            child: AnimatedScale(
+              scale: _down ? 0.97 : 1,
+              duration: d,
+              curve: Curves.easeOutBack,
+              child: AnimatedContainer(
+                duration: d,
+                transform: Matrix4.translationValues(0, _down ? 4 : 0, 0),
+                decoration: BoxDecoration(
+                  color: widget.gradient == null
+                      ? (pressedFill
+                            ? widget.pressedColor
+                            : (widget.color ?? p.surface))
+                      : null,
+                  gradient: widget.gradient,
+                  borderRadius: radius,
+                  border:
+                      widget.border ??
+                      (p.name == 'contrast'
+                          ? Border.all(color: p.border, width: 2)
+                          : null),
+                  boxShadow: widget.raised && enabled
+                      ? AppTokens.raised(p, pressed: _down)
+                      : null,
+                ),
+                // 바탕색이 따로 없으면 누르는 동안 두꺼운 테두리로 표시(크기는 그대로).
+                foregroundDecoration: _down && widget.pressedColor == null
+                    ? BoxDecoration(
+                        borderRadius: radius,
+                        border: Border.all(
+                          color: p.primary,
+                          width: AppTokens.focusRingWidth,
+                        ),
+                      )
+                    : null,
+                child: Opacity(opacity: enabled ? 1 : 0.5, child: widget.child),
+              ),
             ),
-            child: Opacity(opacity: enabled ? 1 : 0.5, child: widget.child),
           ),
         ),
       ),
@@ -158,9 +197,37 @@ class _Press3DState extends State<Press3D> {
   }
 }
 
+/// 버튼 바깥에 그리는 초점 고리(자리를 차지하지 않음).
+class _FocusRingPainter extends CustomPainter {
+  _FocusRingPainter(this.color, this.radius);
+  final Color color;
+  final double radius;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const w = AppTokens.focusRingWidth;
+    const out = AppTokens.focusRingGap + w / 2;
+    final rect = (Offset.zero & size).inflate(out);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, Radius.circular(radius + out)),
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = w,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_FocusRingPainter old) =>
+      old.color != color || old.radius != radius;
+}
+
 enum ButtonKind { primary, accent, safe, caution, danger, plain }
 
-/// 색이 있는 큰 버튼(최소 높이 56). 위험 동작은 빨강 + 흰 글자.
+/// 큰 버튼(최소 높이 56, 글자 18 굵게). 색은 모두 테마(tokens.dart)에서 옴.
+/// - primary·accent·safe·caution·danger: 색을 채운 버튼(글자 대비 7:1 이상)
+/// - danger: 위험 동작은 언제나 빨강 바탕
+/// - plain: 2px 테두리 버튼(바탕 + 또렷한 테두리)
 class BigButton extends StatelessWidget {
   const BigButton({
     super.key,
@@ -179,17 +246,30 @@ class BigButton extends StatelessWidget {
   final bool expand;
   final bool raised;
 
+  /// 버튼 종류별 (바탕, 글자) 색. 테스트에서도 같은 값을 검사한다.
+  static (Color, Color) colorsFor(AppPalette p, ButtonKind kind) =>
+      switch (kind) {
+        ButtonKind.primary => (p.primary, p.onPrimary),
+        ButtonKind.accent => (p.accent, p.onAccent),
+        ButtonKind.safe => (p.safeFill, p.onSafeFill),
+        ButtonKind.caution => (p.cautionFill, p.onCautionFill),
+        ButtonKind.danger => (p.dangerFill, p.onDangerFill),
+        ButtonKind.plain => (p.surface, p.text),
+      };
+
+  /// 누르는 동안의 바탕색.
+  static Color pressedFor(AppPalette p, ButtonKind kind) {
+    if (kind == ButtonKind.plain) {
+      return Color.lerp(p.surface, p.outline, 0.2)!;
+    }
+    final (bg, fg) = colorsFor(p, kind);
+    return pressedColor(bg, fg);
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    final (bg, fg) = switch (kind) {
-      ButtonKind.primary => (p.primary, p.onPrimary),
-      ButtonKind.accent => (p.accent, p.onAccent),
-      ButtonKind.safe => (p.safeFill, p.onSafeFill),
-      ButtonKind.caution => (p.cautionFill, p.onCautionFill),
-      ButtonKind.danger => (p.dangerFill, p.onDangerFill),
-      ButtonKind.plain => (p.surfaceAlt, p.text),
-    };
+    final (bg, fg) = colorsFor(p, kind);
     final content = Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: AppTokens.s4,
@@ -209,7 +289,7 @@ class BigButton extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: fg,
-                fontSize: AppTokens.fontBody,
+                fontSize: AppTokens.fontButton,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -222,6 +302,10 @@ class BigButton extends StatelessWidget {
       child: Press3D(
         onTap: onPressed,
         color: bg,
+        pressedColor: pressedFor(p, kind),
+        border: kind == ButtonKind.plain
+            ? Border.all(color: p.outline, width: AppTokens.outlineWidth)
+            : null,
         raised: raised,
         semanticLabel: label,
         child: ConstrainedBox(
@@ -348,7 +432,9 @@ class StatusBadge extends StatelessWidget {
               style: TextStyle(
                 color: fg,
                 fontWeight: FontWeight.w700,
-                fontSize: compact ? 14 : 16,
+                fontSize: compact
+                    ? AppTokens.fontBadgeCompact
+                    : AppTokens.fontBadge,
               ),
             ),
           ),
@@ -1209,8 +1295,8 @@ class ChoiceChips<T> extends StatelessWidget {
             selectedColor: p.primary,
             backgroundColor: p.surfaceAlt,
             side: BorderSide(
-              color: v == selected ? p.primary : p.border,
-              width: 2,
+              color: v == selected ? p.primary : p.outline,
+              width: AppTokens.outlineWidth,
             ),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             materialTapTargetSize: MaterialTapTargetSize.padded,

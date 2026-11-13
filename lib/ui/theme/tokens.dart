@@ -18,6 +18,7 @@ class AppPalette {
     required this.text,
     required this.textMuted,
     required this.border,
+    required this.outline,
     required this.primary,
     required this.onPrimary,
     required this.accent,
@@ -42,6 +43,12 @@ class AppPalette {
   final String name;
   final Brightness brightness;
   final Color background, surface, surfaceAlt, text, textMuted, border;
+
+  /// 테두리 버튼·입력칸·선택 칩의 2px 테두리(바탕과 대비 4.5:1 이상, 또렷하게).
+  final Color outline;
+
+  /// 키보드 초점 고리 색(바탕과 가장 대비가 큰 본문 글자색).
+  Color get focusRing => text;
   final Color primary, onPrimary, accent, onAccent;
 
   /// 상태색(바탕 위의 글자·아이콘·테두리용)
@@ -80,20 +87,21 @@ class AppPalette {
     surface: Color(0xFFFFFFFF),
     surfaceAlt: Color(0xFFE8ECF7),
     text: Color(0xFF111827),
-    textMuted: Color(0xFF4B5563),
+    textMuted: Color(0xFF374151),
     border: Color(0xFFCBD2E1),
+    outline: Color(0xFF4B5563),
     primary: Color(0xFF4338CA),
     onPrimary: Color(0xFFFFFFFF),
-    accent: Color(0xFF0F766E),
+    accent: Color(0xFF115E59),
     onAccent: Color(0xFFFFFFFF),
-    safe: Color(0xFF15803D),
-    progress: Color(0xFF1D4ED8),
-    caution: Color(0xFF8A5A00),
-    danger: Color(0xFFB91C1C),
-    safeFill: Color(0xFF15803D),
-    progressFill: Color(0xFF1D4ED8),
+    safe: Color(0xFF14532D),
+    progress: Color(0xFF1E40AF),
+    caution: Color(0xFF713F12),
+    danger: Color(0xFF991B1B),
+    safeFill: Color(0xFF166534),
+    progressFill: Color(0xFF1E40AF),
     cautionFill: Color(0xFFFACC15),
-    dangerFill: Color(0xFFB91C1C),
+    dangerFill: Color(0xFF991B1B),
     onSafeFill: Color(0xFFFFFFFF),
     onProgressFill: Color(0xFFFFFFFF),
     onCautionFill: Color(0xFF1F2937),
@@ -112,14 +120,15 @@ class AppPalette {
     text: Color(0xFFF1F5F9),
     textMuted: Color(0xFFCBD5E1),
     border: Color(0xFF475569),
+    outline: Color(0xFFCBD5E1),
     primary: Color(0xFFA5B4FC),
     onPrimary: Color(0xFF1E1B4B),
     accent: Color(0xFF5EEAD4),
     onAccent: Color(0xFF042F2E),
     safe: Color(0xFF4ADE80),
-    progress: Color(0xFF7DB4FF),
+    progress: Color(0xFFA5C8FF),
     caution: Color(0xFFFACC15),
-    danger: Color(0xFFFCA5A5),
+    danger: Color(0xFFFCB4B4),
     safeFill: Color(0xFF4ADE80),
     progressFill: Color(0xFF7DB4FF),
     cautionFill: Color(0xFFFACC15),
@@ -127,7 +136,7 @@ class AppPalette {
     onSafeFill: Color(0xFF052E16),
     onProgressFill: Color(0xFF0B1B3A),
     onCautionFill: Color(0xFF1F1300),
-    onDangerFill: Color(0xFF2B0505),
+    onDangerFill: Color(0xFF000000),
     shadow: Color(0x88000000),
     tileTop: Color(0xFF2A3A55),
     tileBottom: Color(0xFF1B2638),
@@ -142,6 +151,7 @@ class AppPalette {
     text: Color(0xFFFFFFFF),
     textMuted: Color(0xFFF0F0F0),
     border: Color(0xFFFFFFFF),
+    outline: Color(0xFFFFFFFF),
     primary: Color(0xFFFFFF00),
     onPrimary: Color(0xFF000000),
     accent: Color(0xFF00FFFF),
@@ -153,7 +163,7 @@ class AppPalette {
     safeFill: Color(0xFF00FF7F),
     progressFill: Color(0xFF8CC8FF),
     cautionFill: Color(0xFFFFFF00),
-    dangerFill: Color(0xFFFF8A8A),
+    dangerFill: Color(0xFFFF6B6B),
     onSafeFill: Color(0xFF000000),
     onProgressFill: Color(0xFF000000),
     onCautionFill: Color(0xFF000000),
@@ -207,6 +217,7 @@ class AppPalette {
       text: text,
       textMuted: textMuted,
       border: border,
+      outline: outline,
       primary: dark ? t.$3 : t.$1,
       onPrimary: dark ? t.$4 : t.$2,
       accent: accent,
@@ -235,8 +246,17 @@ class AppTokens {
   AppTokens._();
 
   // 크기
-  static const buttonHeight = 56.0;
-  static const minTouch = 48.0;
+  static const buttonHeight = 56.0; // 모든 버튼 최소 높이(규칙: 52 이상)
+  static const minTouch = 48.0; // 누를 수 있는 것의 최소 크기(규칙: 48 이상)
+  static const outlineWidth = 2.0; // 테두리 버튼·입력칸·칩 테두리 두께
+  static const focusRingWidth = 3.0; // 키보드 초점 고리 두께
+  static const focusRingGap = 3.0; // 버튼과 초점 고리 사이 틈
+
+  // 보기 쉬움 규칙: 본문 글자·버튼 글자는 바탕과 대비 7:1 이상(WCAG AAA)
+  static const minTextContrast = 7.0;
+
+  /// 누를 때 바탕을 글자색 반대쪽으로 이만큼 옮김(글자 대비는 오히려 커짐).
+  static const pressedShift = 0.22;
   static const iconSize = 28.0;
   static const tileEmoji = 56.0;
   static const smallestScreen = Size(360, 640);
@@ -262,7 +282,10 @@ class AppTokens {
   static const fontTitle = 28.0;
   static const fontHeading = 22.0;
   static const fontBody = 18.0;
-  static const fontSmall = 16.0;
+  static const fontSmall = 16.0; // 가장 작은 글자(규칙: 16 이상)
+  static const fontButton = 18.0; // 버튼 글자(규칙: 17 이상, 굵게)
+  static const fontBadge = 17.0;
+  static const fontBadgeCompact = 16.0;
   static const fontBigNumber = 40.0;
 
   // 움직임
@@ -405,8 +428,38 @@ ThemeData buildTheme(AppPalette p) {
         height: 1.4,
       ),
       labelLarge: text.labelLarge?.copyWith(
-        fontSize: AppTokens.fontBody,
+        fontSize: AppTokens.fontButton,
         fontWeight: FontWeight.w700,
+      ),
+      // 작은 글자 단계도 16 아래로 내려가지 않게(입력칸 도움말·오류 글자 등)
+      bodySmall: text.bodySmall?.copyWith(
+        fontSize: AppTokens.fontSmall,
+        height: 1.4,
+      ),
+      labelMedium: text.labelMedium?.copyWith(
+        fontSize: AppTokens.fontSmall,
+        fontWeight: FontWeight.w700,
+      ),
+      labelSmall: text.labelSmall?.copyWith(
+        fontSize: AppTokens.fontSmall,
+        fontWeight: FontWeight.w700,
+      ),
+    ),
+    focusColor: p.focusRing.withValues(alpha: 0.16),
+    textButtonTheme: TextButtonThemeData(style: _textButtonStyle(p)),
+    filledButtonTheme: FilledButtonThemeData(style: _filledButtonStyle(p)),
+    elevatedButtonTheme: ElevatedButtonThemeData(style: _filledButtonStyle(p)),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: _outlinedButtonStyle(p),
+    ),
+    iconButtonTheme: IconButtonThemeData(
+      style: ButtonStyle(
+        minimumSize: const WidgetStatePropertyAll(
+          Size(AppTokens.minTouch, AppTokens.minTouch),
+        ),
+        iconSize: const WidgetStatePropertyAll(AppTokens.iconSize),
+        overlayColor: _overlay(p.text),
+        side: _focusSide(p),
       ),
     ),
     appBarTheme: AppBarTheme(
@@ -421,14 +474,28 @@ ThemeData buildTheme(AppPalette p) {
       fillColor: p.surface,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       labelStyle: TextStyle(color: p.textMuted, fontSize: AppTokens.fontBody),
-      hintStyle: TextStyle(color: p.textMuted),
+      hintStyle: TextStyle(color: p.textMuted, fontSize: AppTokens.fontBody),
+      helperStyle: TextStyle(color: p.textMuted, fontSize: AppTokens.fontSmall),
+      errorStyle: TextStyle(
+        color: p.danger,
+        fontSize: AppTokens.fontSmall,
+        fontWeight: FontWeight.w700,
+      ),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppTokens.radiusButton),
-        borderSide: BorderSide(color: p.border, width: 2),
+        borderSide: BorderSide(color: p.outline, width: AppTokens.outlineWidth),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppTokens.radiusButton),
-        borderSide: BorderSide(color: p.border, width: 2),
+        borderSide: BorderSide(color: p.outline, width: AppTokens.outlineWidth),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppTokens.radiusButton),
+        borderSide: BorderSide(color: p.danger, width: AppTokens.outlineWidth),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppTokens.radiusButton),
+        borderSide: BorderSide(color: p.danger, width: 3),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppTokens.radiusButton),
@@ -467,6 +534,90 @@ ThemeData buildTheme(AppPalette p) {
       },
     ),
   );
+}
+
+/// 누름·초점 덧칠(누를 때 더 진하게, 초점일 때 은은하게).
+WidgetStateProperty<Color?> _overlay(Color on) =>
+    WidgetStateProperty.resolveWith((s) {
+      if (s.contains(WidgetState.pressed)) return on.withValues(alpha: 0.24);
+      if (s.contains(WidgetState.focused)) return on.withValues(alpha: 0.16);
+      if (s.contains(WidgetState.hovered)) return on.withValues(alpha: 0.08);
+      return null;
+    });
+
+/// 키보드 초점일 때 굵은 고리(바탕과 가장 대비가 큰 색).
+WidgetStateProperty<BorderSide?> _focusSide(AppPalette p, [BorderSide? rest]) =>
+    WidgetStateProperty.resolveWith(
+      (s) => s.contains(WidgetState.focused)
+          ? BorderSide(color: p.focusRing, width: AppTokens.focusRingWidth)
+          : rest,
+    );
+
+const _buttonMinSize = WidgetStatePropertyAll(
+  Size(AppTokens.minTouch, AppTokens.buttonHeight),
+);
+const _buttonText = WidgetStatePropertyAll(
+  TextStyle(
+    fontFamily: AppTokens.fontFamily,
+    fontSize: AppTokens.fontButton,
+    fontWeight: FontWeight.w700,
+  ),
+);
+final _buttonShape = WidgetStatePropertyAll(
+  RoundedRectangleBorder(
+    borderRadius: BorderRadius.circular(AppTokens.radiusButton),
+  ),
+);
+
+ButtonStyle _filledButtonStyle(AppPalette p) => ButtonStyle(
+  minimumSize: _buttonMinSize,
+  textStyle: _buttonText,
+  shape: _buttonShape,
+  backgroundColor: WidgetStateProperty.resolveWith(
+    (s) => s.contains(WidgetState.disabled)
+        ? p.surfaceAlt
+        : s.contains(WidgetState.pressed)
+        ? pressedColor(p.primary, p.onPrimary)
+        : p.primary,
+  ),
+  foregroundColor: WidgetStateProperty.resolveWith(
+    (s) => s.contains(WidgetState.disabled) ? p.textMuted : p.onPrimary,
+  ),
+  overlayColor: _overlay(p.onPrimary),
+  side: _focusSide(p),
+);
+
+ButtonStyle _outlinedButtonStyle(AppPalette p) => ButtonStyle(
+  minimumSize: _buttonMinSize,
+  textStyle: _buttonText,
+  shape: _buttonShape,
+  backgroundColor: WidgetStatePropertyAll(p.surface),
+  foregroundColor: WidgetStatePropertyAll(p.text),
+  overlayColor: _overlay(p.text),
+  side: _focusSide(
+    p,
+    BorderSide(color: p.outline, width: AppTokens.outlineWidth),
+  ),
+);
+
+ButtonStyle _textButtonStyle(AppPalette p) => ButtonStyle(
+  minimumSize: const WidgetStatePropertyAll(
+    Size(AppTokens.minTouch, AppTokens.minTouch),
+  ),
+  textStyle: _buttonText,
+  shape: _buttonShape,
+  foregroundColor: WidgetStatePropertyAll(p.text),
+  overlayColor: _overlay(p.text),
+  side: _focusSide(p),
+);
+
+/// 누른 버튼 바탕: 글자색에서 먼 쪽(글자가 밝으면 더 어둡게, 어두우면 더 밝게).
+/// 그래서 누르는 동안에도 글자 대비가 줄지 않는다.
+Color pressedColor(Color background, Color foreground) {
+  final towards = foreground.computeLuminance() > 0.5
+      ? const Color(0xFF000000)
+      : const Color(0xFFFFFFFF);
+  return Color.lerp(background, towards, AppTokens.pressedShift)!;
 }
 
 /// WCAG 대비 비율(테스트에서 사용).
