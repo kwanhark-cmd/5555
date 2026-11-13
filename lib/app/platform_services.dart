@@ -417,8 +417,6 @@ class SystemHaptics implements HapticPort {
 }
 
 class PlatformInstaller implements InstallerPort {
-  static const _ch = MethodChannel('account_vault/installer');
-
   @override
   String get os => Platform.operatingSystem;
 
@@ -438,10 +436,10 @@ class PlatformInstaller implements InstallerPort {
   Future<String> install(File file) async {
     try {
       if (Platform.isAndroid) {
-        final r = await _ch.invokeMethod<String>('installApk', file.path);
-        return r == 'need_permission'
-            ? '"이 출처 허용"을 켠 뒤 다시 "설치"를 눌러 주세요.'
-            : '설치 화면에서 "업데이트"를 눌러 주세요. 금고는 그대로 남아요.';
+        // 안드로이드는 앱 안에서 덮어쓰기 설치를 하지 않는다(빌드마다 서명이 달라 거부되고,
+        // 앱을 지우면 금고도 지워짐). 업데이트 카드가 백업 → 확인 → 브라우저 내려받기 순서를 안내한다.
+        return '안드로이드는 앱 안에서 설치하지 않아요. 백업 파일을 앱 밖에 저장하고 확인한 뒤 '
+            '새 설치 파일을 내려받아 주세요.';
       }
       if (Platform.isWindows) {
         await Process.start(
