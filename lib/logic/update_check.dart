@@ -1,9 +1,6 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:http/http.dart' as http;
-
-import '../core/crypto/vault_crypto.dart';
 
 /// GitHub Releases 에서 새 버전을 확인하고, 내려받은 파일의 해시(SHA-256)를 검사한다.
 /// 자동으로 내려받지 않는다: 사용자가 버튼을 눌렀을 때만.
@@ -86,12 +83,9 @@ Map<String, String> parseSha256Sums(String text) {
 }
 
 class UpdateChecker {
-  UpdateChecker({http.Client? client, VaultCrypto? crypto})
-    : _client = client ?? http.Client(),
-      _crypto = crypto ?? VaultCrypto();
+  UpdateChecker({http.Client? client}) : _client = client ?? http.Client();
 
   final http.Client _client;
-  final VaultCrypto _crypto;
 
   Future<ReleaseInfo> latest() async {
     final http.Response res;
@@ -156,39 +150,5 @@ class UpdateChecker {
       hashes: hashes,
       pageUrl: (j['html_url'] as String?) ?? '',
     );
-  }
-
-  /// 내려받고 해시를 확인한다. 해시가 없거나 다르면 파일을 지우고 실패.
-  Future<File> download(
-    ReleaseInfo info,
-    ReleaseAsset asset,
-    Directory dir, {
-    void Function(double progress)? onProgress,
-  }) async {
-    final expected = info.hashes[asset.name];
-    if (expected == null) {
-      throw const UpdateException('새 버전 파일의 확인값(해시)이 없어 설치하지 않아요.');
-    }
-    final file = File('${dir.path}${Platform.pathSeparator}${asset.name}');
-    final req = http.Request('GET', Uri.parse(asset.url));
-    final http.StreamedResponse res;
-    try {
-      res = await _client.send(req);
-    } catch (_) {
-      throw const UpdateException('내려받지 못했어요. 인터넷 연결을 확인해 주세요.');
-    }
-    if (res.statusCode != 200) throw const UpdateException('내려받지 못했어요.');
-    final total = res.contentLength ?? asset.size;
-    final bytes = <int>[];
-    await for (final chunk in res.stream) {
-      bytes.addAll(chunk);
-      if (total > 0) onProgress?.call(bytes.length / total);
-    }
-    final actual = await _crypto.sha256Hex(bytes);
-    if (actual != expected) {
-      throw const UpdateException('내려받은 파일이 원본과 달라요(해시 불일치). 안전을 위해 설치하지 않아요.');
-    }
-    await file.writeAsBytes(bytes, flush: true);
-    return file;
   }
 }

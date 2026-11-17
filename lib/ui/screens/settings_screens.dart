@@ -34,7 +34,7 @@ class SettingsScreen extends StatelessWidget {
       title: '설정',
       restoreId: 'settings',
       children: [
-        // 맨 위: 업데이트 확인 + 문제 신고
+        // 맨 위: 새 버전으로 바꾸기 + 문제 신고
         const UpdateCard(),
         const SizedBox(height: AppTokens.s3),
         BigButton(
@@ -996,7 +996,6 @@ class _BackupScreenState extends State<BackupScreen> {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
-    final app = context.app;
     return AppPage(
       title: '백업',
       restoreId: 'backup',
@@ -1008,13 +1007,11 @@ class _BackupScreenState extends State<BackupScreen> {
           '휴대폰을 바꾸거나 고장 날 때를 대비해 가끔 백업해 USB 등에 보관하세요.',
           style: t.bodyLarge,
         ),
-        if (app.services.installer.os == 'android') ...[
-          gap,
-          FlatCard(
-            status: StatusKind.caution,
-            child: Text(androidDeleteWarning, style: t.bodyLarge),
-          ),
-        ],
+        gap,
+        FlatCard(
+          status: StatusKind.caution,
+          child: Text(androidDeleteWarning, style: t.bodyLarge),
+        ),
         if (checked != null) ...[
           gap,
           StatusBadge(

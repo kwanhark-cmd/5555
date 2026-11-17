@@ -344,7 +344,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   Divider(height: 1, color: p.border),
                   _MenuRow(
                     emoji: 'gear',
-                    title: '설정 · 백업 · 업데이트',
+                    title: '설정 · 백업 · 새 버전',
                     onTap: () => _go(const SettingsScreen()),
                   ),
                 ],

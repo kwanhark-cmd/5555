@@ -252,7 +252,7 @@ void main() {
           isA<BackupException>().having(
             (e) => e.message,
             'm',
-            contains('업데이트'),
+            contains('최신 버전 앱을 설치'),
           ),
         ),
       );

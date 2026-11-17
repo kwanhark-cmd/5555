@@ -97,7 +97,7 @@ void main() {
       ),
     );
     await realWait(tester, 3);
-    expect(find.textContaining('앱을 삭제하면 금고도 함께 지워져요'), findsOneWidget);
+    expect(find.textContaining('앱을 지우면 금고도 함께 지워질 수 있어요'), findsOneWidget);
 
     await tapText(tester, '백업 파일 만들기');
     await realWait(tester, 10);

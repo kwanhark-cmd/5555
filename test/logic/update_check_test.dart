@@ -83,38 +83,9 @@ void main() {
     expect(info.hashes['account_vault-9.9.9-android.apk'], apkHash);
   });
 
-  test('해시가 맞으면 저장, 다르면 설치 중단(파일 남기지 않음)', () async {
-    final dir = Directory.systemTemp.createTempSync('upd');
-    addTearDown(() => dir.deleteSync(recursive: true));
-    final ok = UpdateChecker(client: server());
-    final info = await ok.latest();
-    final f = await ok.download(info, info.assetFor('android')!, dir);
-    expect(f.readAsBytesSync(), apkBytes);
-    f.deleteSync();
-
-    final bad = UpdateChecker(client: server(hash: 'a' * 64));
-    final info2 = await bad.latest();
-    await expectLater(
-      bad.download(info2, info2.assetFor('android')!, dir),
-      throwsA(isA<UpdateException>()),
-    );
-    expect(dir.listSync(), isEmpty);
-  });
-
   test('본문과 SHA256SUMS 의 해시가 다르면 거부', () async {
     final c = UpdateChecker(client: server(sumsHash: 'b' * 64));
     await expectLater(c.latest(), throwsA(isA<UpdateException>()));
-  });
-
-  test('해시가 없는 파일은 설치하지 않음', () async {
-    final dir = Directory.systemTemp.createTempSync('upd2');
-    addTearDown(() => dir.deleteSync(recursive: true));
-    final c = UpdateChecker(client: server());
-    final info = await c.latest();
-    await expectLater(
-      c.download(info, info.assetFor('windows')!, dir),
-      throwsA(isA<UpdateException>()),
-    );
   });
 
   test('인터넷 오류는 쉬운 안내', () async {

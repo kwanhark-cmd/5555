@@ -104,99 +104,95 @@ bool enabled(WidgetTester tester, String label) {
 }
 
 void main() {
-  test('안드로이드 순서는 백업(앱 밖 저장·확인)이 앱 삭제보다 먼저다', () {
-    final backup = androidUpdateSteps.indexWhere(
-      (s) => s.contains('백업 파일 만들기'),
-    );
-    final verify = androidUpdateSteps.indexWhere(
-      (s) => s.contains('저장한 백업 파일 확인'),
-    );
-    final delete = androidUpdateSteps.indexWhere((s) => s.contains('삭제'));
-    final restore = androidUpdateSteps.indexWhere((s) => s.contains('복원'));
-    expect(backup, 0);
-    expect(verify, greaterThan(backup));
-    expect(delete, greaterThan(verify));
-    expect(restore, greaterThan(delete));
-    expect(androidUpdateSteps.first, contains('앱 밖'));
+  test('모든 기기: 백업(앱 밖 저장·확인) → 내려받기 → 기존 앱 삭제 → 설치 → 복원 순서', () {
+    for (final os in ['android', 'windows', 'macos', 'linux']) {
+      final steps = replaceSteps(os);
+      int at(String w) => steps.indexWhere((s) => s.contains(w));
+      expect(at('백업 파일 만들기'), 0, reason: os);
+      expect(steps.first, contains('앱 밖'));
+      expect(at('저장한 백업 파일 확인'), greaterThan(at('백업 파일 만들기')));
+      expect(at('내려받기'), greaterThan(at('저장한 백업 파일 확인')));
+      expect(at('기존 앱을 삭제'), greaterThan(at('내려받기')), reason: os);
+      expect(at('새 앱을 설치'), greaterThan(at('기존 앱을 삭제')), reason: os);
+      expect(at('백업 파일로 복원'), greaterThan(at('새 앱을 설치')), reason: os);
+    }
+    expect(deleteOldAppStep('windows'), contains('제거'));
+    expect(deleteOldAppStep('macos'), contains('휴지통'));
     expect(
       releasesPage,
       'https://github.com/kwanhark-cmd/5555/releases/latest',
     );
   });
 
-  testWidgets('업데이트(안드로이드): 앱 안에서 설치하지 않고, 백업 저장·확인 뒤에만 브라우저로 내려받기', (
-    tester,
-  ) async {
-    final apk = utf8.encode('fake new apk');
-    late String hash;
-    await tester.runAsync(
-      () async => hash = await VaultCrypto().sha256Hex(apk),
-    );
-    final rig = await pumpCard(tester, 'android', fakeServer(apk, hash));
-    rig.files.shareSheet = true;
+  for (final (os, expectedUrl) in [
+    ('android', 'https://dl/apk'),
+    ('windows', 'https://dl/exe'),
+    // 가짜 서버에 맥·리눅스 파일이 없으면 릴리스 페이지를 연다
+    ('macos', 'https://github.com/kwanhark-cmd/5555/releases/tag/v99.0.0'),
+    ('linux', 'https://github.com/kwanhark-cmd/5555/releases/tag/v99.0.0'),
+  ]) {
+    testWidgets('새 버전($os): 앱 안 설치 없음 — 백업 저장·확인 뒤에만 브라우저로 내려받기', (
+      tester,
+    ) async {
+      final file = utf8.encode('fake new app');
+      late String hash;
+      await tester.runAsync(
+        () async => hash = await VaultCrypto().sha256Hex(file),
+      );
+      final rig = await pumpCard(tester, os, fakeServer(file, hash));
+      if (os == 'android') rig.files.shareSheet = true;
 
+      expect(find.text('새 버전으로 바꾸기'), findsOneWidget);
+      expect(find.textContaining('기존 앱을 지우고 새 앱을 설치하는 방식'), findsOneWidget);
+      await tester.tap(find.text('새 버전 확인하기'));
+      await realWait(tester);
+      expect(find.textContaining('새 버전 99.0.0'), findsOneWidget);
+      expect(find.text('백업하고 내려받아 설치'), findsNothing);
+      expect(find.textContaining(deleteOldAppStep(os)), findsOneWidget);
+
+      // 백업 확인 전에는 내려받기 버튼이 꺼져 있다
+      expect(enabled(tester, '③ 새 버전 내려받기(브라우저)'), isFalse);
+
+      await tapText(tester, '① 백업 파일 만들기');
+      await realWait(tester, 10);
+      expect(rig.files.saved.keys.single, endsWith('.vaultbackup'));
+      expect(enabled(tester, '③ 새 버전 내려받기(브라우저)'), isFalse);
+
+      // 다른 파일을 고르면 여전히 꺼짐
+      rig.files.toOpen = '아무 글자';
+      await tapText(tester, '② 저장한 백업 파일 확인');
+      await realWait(tester, 10);
+      expect(enabled(tester, '③ 새 버전 내려받기(브라우저)'), isFalse);
+
+      rig.files.toOpen = rig.files.saved.values.single;
+      await tapText(tester, '② 저장한 백업 파일 확인');
+      await realWait(tester, 10);
+      expect(find.textContaining('확인했어요'), findsOneWidget);
+      expect(enabled(tester, '③ 새 버전 내려받기(브라우저)'), isTrue);
+
+      await tapText(tester, '③ 새 버전 내려받기(브라우저)');
+      await realWait(tester, 3);
+      expect(rig.launcher.opened.single.toString(), expectedUrl);
+      // 앱이 스스로 내려받거나 설치·백업 폴더에 쓰지 않는다
+      expect(
+        Directory('${rig.dir.path}/store/auto_backups').existsSync(),
+        isFalse,
+      );
+      await tester.runAsync(() => rig.controller.lock());
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('인터넷이 안 돼도 바꾸는 순서와 백업 버튼은 그대로 보임', (tester) async {
+    final rig = await pumpCard(
+      tester,
+      'windows',
+      MockClient((_) async => throw const SocketException('x')),
+    );
     await tester.tap(find.text('새 버전 확인하기'));
     await realWait(tester);
-    expect(find.textContaining('새 버전 99.0.0'), findsOneWidget);
-    expect(find.text('백업하고 내려받아 설치'), findsNothing);
-    expect(find.textContaining('앱을 삭제하면 금고도 함께 지워져요'), findsOneWidget);
-    expect(find.textContaining('그대로 남'), findsNothing);
-    expect(find.textContaining('덮어쓰기'), findsNothing);
-
-    // 백업 확인 전에는 내려받기 버튼이 꺼져 있다
-    expect(enabled(tester, '③ 새 버전 내려받기(브라우저)'), isFalse);
-
-    await tapText(tester, '① 백업 파일 만들기');
-    await realWait(tester, 10);
-    expect(rig.files.saved.keys.single, endsWith('.vaultbackup'));
-    expect(enabled(tester, '③ 새 버전 내려받기(브라우저)'), isFalse);
-
-    // 다른 파일을 고르면 여전히 꺼짐
-    rig.files.toOpen = '아무 글자';
-    await tapText(tester, '② 저장한 백업 파일 확인');
-    await realWait(tester, 10);
-    expect(enabled(tester, '③ 새 버전 내려받기(브라우저)'), isFalse);
-
-    rig.files.toOpen = rig.files.saved.values.single;
-    await tapText(tester, '② 저장한 백업 파일 확인');
-    await realWait(tester, 10);
-    expect(find.textContaining('확인했어요'), findsOneWidget);
-    expect(enabled(tester, '③ 새 버전 내려받기(브라우저)'), isTrue);
-
-    await tapText(tester, '③ 새 버전 내려받기(브라우저)');
-    await realWait(tester, 3);
-    expect(rig.launcher.opened.single.toString(), 'https://dl/apk');
-    expect(rig.installer.installed, isEmpty);
-    expect(
-      Directory('${rig.dir.path}/store/auto_backups').existsSync(),
-      isFalse,
-    );
-    await tester.runAsync(() => rig.controller.lock());
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('업데이트(윈도우): 확인 → 자동 백업 → 내려받기 → 해시 확인 → 설치', (tester) async {
-    final exe = utf8.encode('fake new setup');
-    late String hash;
-    await tester.runAsync(
-      () async => hash = await VaultCrypto().sha256Hex(exe),
-    );
-    final rig = await pumpCard(tester, 'windows', fakeServer(exe, hash));
-
-    await tester.tap(find.text('새 버전 확인하기'));
-    await realWait(tester);
-    expect(find.textContaining('새 버전 99.0.0'), findsOneWidget);
-    await tapText(tester, '백업하고 내려받아 설치');
-    await realWait(tester, 3);
-    expect(find.textContaining('복구 코드가 종이에'), findsOneWidget);
-    await tapText(tester, '백업하고 내려받기');
-    await realWait(tester, 30);
-    expect(
-      rig.installer.installed.single,
-      endsWith('account_vault-99.0.0-windows-setup.exe'),
-    );
-    final backups = Directory('${rig.dir.path}/store/auto_backups').listSync();
-    expect(backups.single.path, contains('before-update-99.0.0'));
+    expect(find.textContaining('인터넷 연결'), findsOneWidget);
+    expect(find.text('① 백업 파일 만들기'), findsOneWidget);
     await tester.runAsync(() => rig.controller.lock());
     expect(tester.takeException(), isNull);
   });

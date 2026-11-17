@@ -111,19 +111,9 @@ class FakeHaptics implements HapticPort {
 }
 
 class FakeInstaller implements InstallerPort {
-  final installed = <String>[];
-  Directory? dir;
   String osName = 'android';
   @override
   String get os => osName;
-  @override
-  Future<Directory> downloadDir() async =>
-      dir ??= Directory.systemTemp.createTempSync('dl');
-  @override
-  Future<String> install(File file) async {
-    installed.add(file.path);
-    return '설치 화면을 열었어요';
-  }
 }
 
 class FakeLauncherStyle implements LauncherStylePort {

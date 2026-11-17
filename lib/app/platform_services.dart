@@ -21,7 +21,7 @@ import '../core/log/app_logger.dart';
 import '../core/vault/vault.dart';
 import 'services.dart';
 
-const appVersion = '1.2.1';
+const appVersion = '1.3.0';
 
 Future<AppServices> createPlatformServices() async {
   final support = await getApplicationSupportDirectory();
@@ -419,48 +419,6 @@ class SystemHaptics implements HapticPort {
 class PlatformInstaller implements InstallerPort {
   @override
   String get os => Platform.operatingSystem;
-
-  @override
-  Future<Directory> downloadDir() async {
-    Directory base;
-    if (Platform.isAndroid || Platform.isIOS) {
-      base = Directory(p.join((await getTemporaryDirectory()).path, 'updates'));
-    } else {
-      base = await getDownloadsDirectory() ?? await getTemporaryDirectory();
-    }
-    await base.create(recursive: true);
-    return base;
-  }
-
-  @override
-  Future<String> install(File file) async {
-    try {
-      if (Platform.isAndroid) {
-        // 안드로이드는 앱 안에서 덮어쓰기 설치를 하지 않는다(빌드마다 서명이 달라 거부되고,
-        // 앱을 지우면 금고도 지워짐). 업데이트 카드가 백업 → 확인 → 브라우저 내려받기 순서를 안내한다.
-        return '안드로이드는 앱 안에서 설치하지 않아요. 백업 파일을 앱 밖에 저장하고 확인한 뒤 '
-            '새 설치 파일을 내려받아 주세요.';
-      }
-      if (Platform.isWindows) {
-        await Process.start(
-          file.path,
-          const [],
-          mode: ProcessStartMode.detached,
-        );
-        // 설치 프로그램이 앱을 덮어쓸 수 있도록 앱을 닫는다(금고 파일은 %APPDATA% 에 그대로).
-        Future.delayed(const Duration(seconds: 2), () => exit(0));
-        return '설치 프로그램을 열었어요. 앱이 잠시 후 닫혀요.';
-      }
-      // 맥·리눅스: 보안 상자(샌드박스) 때문에 앱이 스스로를 바꿀 수 없어 내려받은 폴더를 연다.
-      await launchUrl(Uri.directory(file.parent.path));
-      return Platform.isMacOS
-          ? '내려받은 폴더를 열었어요. 압축을 풀고 새 앱을 "응용 프로그램" 폴더로 끌어 기존 앱을 바꿔 주세요.'
-          : '내려받은 폴더를 열었어요. 압축을 풀어 기존 앱 폴더를 바꿔 주세요.';
-    } catch (e) {
-      log.warn('설치 시작 실패: ${e.runtimeType}');
-      return '설치를 시작하지 못했어요. 내려받은 파일: ${file.path}';
-    }
-  }
 }
 
 class AndroidLauncherStyle implements LauncherStylePort {

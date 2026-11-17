@@ -692,7 +692,7 @@ enum FailStage {
   restore('복원'),
   gmail('지메일'),
   ai('AI'),
-  update('업데이트'),
+  update('새 버전 확인'),
   breach('유출 확인'),
   file('파일');
 

@@ -62,16 +62,11 @@ abstract class SecureScreenPort {
   Future<void> setSecure(bool on);
 }
 
-/// 새 버전 설치 파일을 넘겨 설치를 시작한다(사용자가 마지막 확인을 한다).
+/// 이 기기의 종류. 새 버전 안내(삭제·설치 방법)와 내려받을 파일 고르기에 쓴다.
+/// 앱은 새 버전을 직접 내려받거나 설치하지 않는다(기존 앱 삭제 → 새 앱 설치 방식).
 abstract class InstallerPort {
-  /// 이 기기 종류: android / windows / macos / linux
+  /// android / windows / macos / linux
   String get os;
-
-  /// 내려받을 폴더.
-  Future<Directory> downloadDir();
-
-  /// 설치 시작. 사용자에게 보여 줄 안내 문구를 돌려준다.
-  Future<String> install(File file);
 }
 
 /// 런처(홈 화면) 이름·아이콘 바꾸기. 안드로이드만 실제로 바뀌고, 나머지는 false.

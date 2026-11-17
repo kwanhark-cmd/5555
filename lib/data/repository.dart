@@ -210,7 +210,7 @@ class BackupService {
     if (v is! int) throw const BackupException('백업 파일이 손상되었어요.');
     if (v > backupVersion) {
       throw const BackupException(
-        '더 새로운 앱 버전에서 만든 백업이에요. 앱을 최신 버전으로 업데이트한 뒤 다시 시도해 주세요.',
+        '더 새로운 앱 버전에서 만든 백업이에요. 최신 버전 앱을 설치한 뒤 다시 시도해 주세요.',
       );
     }
     final payload = raw['payload'];
